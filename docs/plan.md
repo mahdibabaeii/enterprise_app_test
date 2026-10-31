@@ -1,8 +1,9 @@
 # Plan: Tamper-Evident Card Decision Service (vertical slice)
 
 Status: revised after challenge 01. The author accepted the decisions recorded
-in `docs/challenges/01-plan-challenge.md`, and this plan includes them. D1–D5 in
-section 7 are still open. No code has been written.
+in `docs/challenges/01-plan-challenge.md`, and this plan includes them. The
+author approved D1–D5 in section 7 as proposed. Approved for build. No code has
+been written.
 Sources: `docs/PRD.md`, `AGENTS.md`, `docs/challenges/01-plan-challenge.md`.
 
 The slice is done when a reviewer can run `make start`, make a decision as an
@@ -10,8 +11,7 @@ analyst, replay it, see an auditor get 403 on create, run `make tamper`, and
 watch `GET /audit/verify` name the first broken record. Everything else is
 secondary.
 
-Decisions that need the author before building are marked **[DECIDE]** and
-collected in section 7.
+The author's decisions D1–D5 are recorded in section 7.
 
 ---
 
@@ -77,9 +77,9 @@ The PRD does not define the input schema (R9). Proposed, strict
 | --- | --- |
 | `transaction_id` | string, 1–64 chars, `[A-Za-z0-9_-]` |
 | `card_number` | string of 12–19 digits, Luhn-valid. Never stored or logged in full |
-| `card_status` | `active` or `reported_stolen` **[DECIDE, R8]** |
+| `card_status` | `active` or `reported_stolen`, supplied by the upstream card system (D3) |
 | `amount_minor` | integer, > 0, ≤ 100,000,000 (cents; no floats anywhere) |
-| `currency` | `AUD` only in v1 **[DECIDE, R10]** |
+| `currency` | `AUD` only in v1 (R10) |
 | `merchant_id` | string, 1–64 chars, `[A-Za-z0-9_-]` |
 | `merchant_country` | ISO 3166-1 alpha-2, uppercase |
 | `timestamp` | ISO 8601 with an explicit UTC offset, which must be the merchant's local offset (input contract, R5). Missing offset gives 422 |
@@ -459,21 +459,21 @@ optional (challenge 01).
   The seeded batch in T04 covers A1 without it.
 - Dependency scan in CI (pip-audit, new dependency)
 - Dockerfile
-- `SPEC.md` (see R23)
+- `SPEC.md`: not built (D5)
 
 ---
 
 ## 7. Risks and ambiguities
 
-### Decisions needed from the author before the build **[DECIDE]**
+### Author decisions (approved as proposed on 2026-10-31)
 
-| # | Question | Proposal |
+| # | Question | Decision |
 | --- | --- | --- |
-| D1 | Dependencies beyond the AGENTS.md stack | Add `uvicorn` (FastAPI needs a server), `PyYAML` (rules are YAML), `httpx` (FastAPI's TestClient needs it). Use `uv` to install Python 3.12 and lock dependencies. The local Python is 3.11.15, and uv is already installed |
-| D2 | Point values (R1) | Use the PRD's starting values unchanged as rule set v1 |
-| D3 | Where "card reported stolen" comes from (R8) | `card_status` input field supplied by the upstream card system |
-| D4 | "Unusual amount" (R3) | Fixed threshold in YAML: ≥ 1,000.00 AUD |
-| D5 | `SPEC.md` (R23) | Treat the PRD plus this plan's test table as the spec. No separate SPEC.md |
+| D1 | Dependencies beyond the AGENTS.md stack | Add `uvicorn` (FastAPI needs a server), `PyYAML` (rules are YAML), `httpx` (FastAPI's TestClient needs it). Use `uv` to install Python 3.12 and lock dependencies. The local Python is 3.11.15, and uv is already installed. Approved |
+| D2 | Point values (R1) | Use the PRD's starting values unchanged as rule set v1. Approved |
+| D3 | Where "card reported stolen" comes from (R8) | `card_status` input field supplied by the upstream card system. Approved |
+| D4 | "Unusual amount" (R3) | Fixed threshold in YAML: ≥ 1,000.00 AUD. Approved |
+| D5 | `SPEC.md` (R23) | Treat the PRD plus this plan's test table as the spec. No separate SPEC.md. Approved |
 
 ### Ambiguities in the PRD, with the proposed reading
 
@@ -501,7 +501,7 @@ optional (challenge 01).
 | R20 | Linking a card's history without storing the number | HMAC-SHA256 with `CARD_REF_KEY`. An unkeyed hash of a card number can be brute-forced. The demo key is public, which is acceptable only because all data is synthetic; the limitations doc says a production key belongs in a vault. Rotating the key breaks velocity history |
 | R21 | Python 3.12 is required but the local Python is 3.11.15, and the second laptop's OS and `make` are unknown (PRD open question) | uv provisions 3.12 (D1). Test the clean-clone path on the second laptop early |
 | R22 | Pushing `.github/workflows/` needs a token with `workflow` scope | VS Code's GitHub sign-in normally includes it. If the push is rejected, the author re-authorises in VS Code |
-| R23 | The PRD names `SPEC.md` as evidence, but AGENTS.md points to the PRD and plan | D5 |
+| R23 | The PRD names `SPEC.md` as evidence, but AGENTS.md points to the PRD and plan | No SPEC.md (D5). The README points reviewers to the PRD and this plan's test table |
 | R24 | Regulatory references are "to be confirmed" | The controls doc names only the type of expectation until the author confirms references |
 | R25 | Port 8000 may be in use | `make start` fails clearly. No automatic port switching |
 | R26 | Duplicate `transaction_id` handling unspecified | Not enforced. A duplicate counts as another attempt. Idempotency is a documented limitation |

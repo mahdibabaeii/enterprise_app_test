@@ -201,9 +201,9 @@ Departures from the PRD raised by the challenger:
 | A2 wording for edit plus rehash | Keep reporting the later record as `first_broken_id`. Verify cannot tell which of the two records was altered, so the reason names both (§2.5; T08) |
 | PRD process items listed as should | Moved to a new "Required after the build" tier: independent tests, reviewer and red team, controls doc, limitations doc and `AI_USAGE.md` (§6) |
 | Property-based tests moved to could | Unchanged. Hypothesis is a new dependency and has not been approved |
-| `SPEC.md` dropped | Still open as D5 |
+| `SPEC.md` dropped | Approved as D5: no separate SPEC.md |
 | Additions beyond the PRD (`GET /decisions`, 401, `card_ref`, `features`, `rules_sha256`, `record_version`) | Accepted with the plan, together with `received_at` |
 | String rule version ordering | Changed: `version` is an integer (§3; T19) |
 | `make tamper` depends on the optional triggers | Changed: the tamper script works whether or not the triggers exist (§2.4) |
 
-Still open before the build: D1–D5 in `docs/plan.md` section 7.
+D1–D5 in `docs/plan.md` section 7 were approved as proposed in a follow-up decision.
