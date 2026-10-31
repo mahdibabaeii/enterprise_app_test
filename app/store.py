@@ -167,10 +167,12 @@ class Store:
                 "outcome": decision.outcome,
             }
             data = canonical_json(payload)
-            connection.execute(
+            inserted = connection.execute(
                 "INSERT INTO decisions (id, prev_hash, payload, hash) VALUES (?, ?, ?, ?)",
                 (record_id, prev_hash, data.decode(), sha256_hex(data)),
             )
+            if inserted.rowcount != 1:
+                raise StoreWriteError("decision could not be recorded: no row was inserted")
             connection.execute("COMMIT")
         except sqlite3.Error as error:
             raise StoreWriteError(

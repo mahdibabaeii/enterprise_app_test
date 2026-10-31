@@ -413,6 +413,22 @@ def test_failed_write_raises_store_write_error_and_adds_nothing(
 
 
 @control("AUD-02")
+def test_insert_that_stores_no_row_raises_store_write_error(
+    chain: Store, raw: sqlite3.Connection
+) -> None:
+    # RAISE(IGNORE) skips the row without an error; the store must not hand out
+    # a decision the chain does not hold, or reuse its id later.
+    append_quiet(chain, 1)
+    raw.execute("CREATE TRIGGER swallow BEFORE INSERT ON decisions BEGIN SELECT RAISE(IGNORE); END")
+
+    with pytest.raises(StoreWriteError):
+        chain.append(txn(transaction_id="T-0002"), V1)
+
+    raw.execute("DROP TRIGGER swallow")
+    assert len(rows(raw)) == 1
+
+
+@control("AUD-02")
 def test_open_reader_does_not_block_an_append(chain: Store, raw: sqlite3.Connection) -> None:
     # WAL mode: a long verify-style read keeps its snapshot while a writer commits.
     append_quiet(chain, 1)
