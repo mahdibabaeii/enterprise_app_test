@@ -1,0 +1,13 @@
+# Rule set version 1. Point values and thresholds are the PRD's starting values
+# (plan decision D2). Changing any value means a new file with a new version.
+version: 1
+thresholds: {step_up: 30, decline: 70}   # <30 approve, 30-69 step_up, >=70 decline
+home_country: AU
+hard_rules:
+  - {code: CARD_REPORTED_STOLEN, type: card_status_is, status: reported_stolen}
+  - {code: MERCHANT_BLOCKLISTED, type: merchant_in_list, merchants: [M-BLOCK-001, M-BLOCK-002]}
+scored_rules:
+  - {code: FOREIGN_COUNTRY,       type: foreign_country,       points: 30}
+  - {code: UNUSUAL_AMOUNT,        type: amount_at_least,       amount_minor: 100000, points: 25}
+  - {code: HIGH_VELOCITY,         type: attempts_over,         window_seconds: 60, max_attempts: 5, points: 40}
+  - {code: NEW_MERCHANT_AT_NIGHT, type: new_merchant_at_night, night_start_hour: 0, night_end_hour: 6, points: 10}
