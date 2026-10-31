@@ -159,7 +159,7 @@ Persona skills such as backend developer or UI designer are deliberately not inc
 **Evidence left in the repository**
 
 - `SPEC.md` with executable acceptance criteria, and `AGENTS.md` with conventions.
-- Commit trailers that link each commit to its Amp thread.
+- A `Co-authored-by: Amp` trailer on each agent-made commit, without a thread link.
 - `docs/challenges/` holding each challenge and the decision taken, including at least one overruled.
 - `AI_USAGE.md` with a table of task, how it was delegated, how it was verified, defects caught, and human interventions.
 

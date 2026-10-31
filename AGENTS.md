@@ -28,7 +28,9 @@ creating it is part of the current step.
 
 ## Working rules
 - Work in small steps. One purpose per commit, with a clear message.
-  Leave the Amp thread trailers on commits.
+  Agent-made commits carry Amp's `Co-authored-by: Amp <amp@ampcode.com>`
+  trailer and no `Amp-Thread-ID` trailer. Never put a thread link or thread id
+  in commits.
 - Write or update tests with every change. Tests come from the spec, not from
   the implementation.
 - Stay inside this repository folder. Do not touch files outside it.
