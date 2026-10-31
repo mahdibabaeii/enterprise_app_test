@@ -469,7 +469,7 @@ optional (challenge 01).
 
 | # | Question | Decision |
 | --- | --- | --- |
-| D1 | Dependencies beyond the AGENTS.md stack | Add `uvicorn` (FastAPI needs a server), `PyYAML` (rules are YAML), `httpx` (FastAPI's TestClient needs it). Use `uv` to install Python 3.12 and lock dependencies. The local Python is 3.11.15, and uv is already installed. Approved |
+| D1 | Dependencies beyond the AGENTS.md stack | Add `uvicorn` (FastAPI needs a server), `PyYAML` (rules are YAML), `httpx` (FastAPI's TestClient needs it). Use `uv` with Python 3.12. Approved. Amended at step 3: public PyPI is blocked on the author's network, so local installs use the corporate package mirror from the shell environment only. Exact versions are pinned in `pyproject.toml`, `uv.lock` is gitignored so no internal URL enters the repo, and CI installs the same pins from public PyPI |
 | D2 | Point values (R1) | Use the PRD's starting values unchanged as rule set v1. Approved |
 | D3 | Where "card reported stolen" comes from (R8) | `card_status` input field supplied by the upstream card system. Approved |
 | D4 | "Unusual amount" (R3) | Fixed threshold in YAML: ≥ 1,000.00 AUD. Approved |
