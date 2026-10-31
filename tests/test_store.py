@@ -289,6 +289,32 @@ def test_t09_deleted_record_fails_verify_at_the_next_record_as_a_gap(
 
 
 @control("AUD-01")
+def test_record_before_record_1_is_reported_out_of_sequence(
+    chain: Store, raw: sqlite3.Connection
+) -> None:
+    append_quiet(chain, 2)
+    raw.execute("INSERT INTO decisions VALUES (0, ?, '{}', ?)", ("1" * 64, "2" * 64))
+
+    result = chain.verify()
+
+    assert (result.intact, result.first_broken_id) == (False, 0)
+    assert "out of sequence" in result.reason
+    assert "-1" not in result.reason
+
+
+@control("AUD-01")
+def test_deleted_first_record_is_reported_missing(chain: Store, raw: sqlite3.Connection) -> None:
+    append_quiet(chain, 2)
+
+    raw.execute("DELETE FROM decisions WHERE id = 1")
+    result = chain.verify()
+
+    assert (result.intact, result.first_broken_id) == (False, 2)
+    assert "record 1 is missing" in result.reason
+    assert "record 0" not in result.reason
+
+
+@control("AUD-01")
 def test_t39_non_canonical_rewrite_of_the_same_values_fails_at_that_record(
     chain: Store, raw: sqlite3.Connection
 ) -> None:

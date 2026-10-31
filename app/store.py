@@ -221,12 +221,15 @@ def _broken_reason(
     prev_hash: str,
 ) -> str | None:
     """Why this record breaks the chain, or None if it is intact."""
-    if record_id != prev_id + 1:
-        if record_id - prev_id == 2:
-            missing = f"record {prev_id + 1} is missing"
+    expected_id = prev_id + 1
+    if record_id < expected_id:
+        return f"record {record_id} is out of sequence; expected record {expected_id}"
+    if record_id > expected_id:
+        if record_id == expected_id + 1:
+            missing = f"record {expected_id} is missing"
         else:
-            missing = f"records {prev_id + 1} to {record_id - 1} are missing"
-        return f"record {record_id} follows record {prev_id}; {missing}"
+            missing = f"records {expected_id} to {record_id - 1} are missing"
+        return f"expected record {expected_id} but found record {record_id}; {missing}"
     if payload_type != "text" or sha256_hex(data) != record_hash:
         return (
             f"hash of record {record_id} does not match its payload; record {record_id} was altered"
