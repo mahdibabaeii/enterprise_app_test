@@ -219,8 +219,11 @@ If a record is edited and its own hash recomputed, the break shows at the next
 record as a link mismatch. Verify cannot tell which of the two records was
 altered, so `first_broken_id` is the later record and the reason names both,
 for example "prev_hash of record 4 does not match hash of record 3; record 3 or
-4 was altered". If the last record is deleted, or the whole chain is rewritten,
-nothing is detected. Both go in the limitations doc (R16).
+4 was altered". Nothing is detected when the latest records are deleted, when
+the latest record or any trailing run of records is edited and relinked with
+recomputed hashes, when a forged record is appended at the head, or when the
+whole chain is rewritten. Without an external head anchor every one of these
+looks like an intact chain. They go in the limitations doc (R16, review 01 F1).
 
 `GET /decisions/{id}/replay`:
 
@@ -494,7 +497,7 @@ optional (challenge 01).
 | R13 | "History unavailable" and "store unavailable" are the same SQLite file in this slice | History read failure gives step-up and is recorded with `features: null`. If the record cannot be written, the API returns 503 and no decision, because an unrecorded decision would break auditability. The README states that callers must treat no decision as step-up |
 | R14 | Status for a missing or invalid role | 401. The PRD specifies only 403 for auditor create |
 | R15 | The UI needs a recent decisions list, but the PRD lists only 4 endpoints | Add `GET /decisions` (last 20). It is required by the UI requirement, not a new feature |
-| R16 | What the chain cannot detect | Truncation of the latest records, and a consistent rewrite of the whole chain. Both are documented with the write-once anchoring production path. An edit plus rehash is reported at the next record, with a reason naming both records. `received_at` is stored as evidence, but it comes from the server clock and proves nothing against someone who controls that clock |
+| R16 | What the chain cannot detect | Truncation of the latest records; an edit or relinked rewrite of the latest record or any trailing run of records, including a forged record appended at the head; and a consistent rewrite of the whole chain (review 01 F1). A strict xfail test keeps the latest-record case visible. All are documented with the write-once anchoring production path. An edit plus rehash is reported at the next record, with a reason naming both records. `received_at` is stored as evidence, but it comes from the server clock and proves nothing against someone who controls that clock |
 | R17 | Replay and velocity: a naive replay re-reads current history and mismatches | Store features in the hashed payload. Replay decides from the stored features (`match`) and separately recomputes them from records with a smaller id (`features_match`) |
 | R18 | A rule file edited without a version bump would silently change replays | Store and compare `rules_sha256`, the hash of the canonical validated rule set. Rule content stays in git, not the database |
 | R19 | FastAPI/Pydantic 422 responses echo the input, which would leak card numbers | Custom validation error handler without input values (T30) |

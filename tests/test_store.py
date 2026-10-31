@@ -236,6 +236,23 @@ def test_t08_edit_with_recomputed_hash_fails_at_the_next_record_naming_both(
 
 
 @control("AUD-01")
+@pytest.mark.xfail(
+    strict=True,
+    reason="R16: an edit to the latest records with recomputed hashes needs a head anchor",
+)
+def test_edit_of_latest_record_with_recomputed_hash_is_detected(
+    chain: Store, raw: sqlite3.Connection
+) -> None:
+    append_quiet(chain, 5)
+    payload = stored_payload(raw, 5)
+    payload["outcome"] = "decline"
+
+    overwrite(raw, 5, canonical(payload), rehash=True)
+
+    assert not chain.verify().intact
+
+
+@control("AUD-01")
 @pytest.mark.parametrize("field", ["prev_hash column", "payload id"])
 def test_record_that_disagrees_with_its_chain_position_fails_at_that_record(
     chain: Store, raw: sqlite3.Connection, field: str
