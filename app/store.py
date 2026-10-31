@@ -86,8 +86,7 @@ def read_features(
     Attempts are earlier records whose transaction timestamp lies in
     [t - window, t], plus the current one. A merchant is seen before if any
     earlier record for the card used it. The window comes from the rule set's
-    attempts_over rule; a rule set without one raises StopIteration here, which
-    append records as history unavailable.
+    single attempts_over rule, which the rule loader requires.
     """
     window = next(
         rule.window_seconds for rule in rule_set.scored_rules if isinstance(rule, AttemptsOver)

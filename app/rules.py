@@ -100,6 +100,13 @@ class RuleSet(_Model):
             raise ValueError("rule codes must be unique")
         return self
 
+    @model_validator(mode="after")
+    def _one_velocity_window(self) -> Self:
+        # Records hold a single attempts_in_window count, so exactly one window.
+        if sum(isinstance(rule, AttemptsOver) for rule in self.scored_rules) != 1:
+            raise ValueError("a rule set needs exactly one attempts_over rule")
+        return self
+
 
 def load_rule_sets(directory: Path = RULES_DIR) -> dict[int, RuleSet]:
     """Load every rules/*.yaml file, keyed by version. Raise RuleSetError on any problem."""

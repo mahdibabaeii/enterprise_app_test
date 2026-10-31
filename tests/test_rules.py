@@ -87,6 +87,39 @@ def test_t19_invalid_rule_file_fails_to_load(tmp_path: Path, case: str, text: st
         load_rule_sets(tmp_path)
 
 
+VELOCITY_RULE = (
+    "  - {code: HIGH_VELOCITY, type: attempts_over, window_seconds: 60, max_attempts: 5,"
+    " points: 40}\n"
+)
+
+
+@control("FS-01")
+@control("VER-01")
+@pytest.mark.parametrize(
+    ("case", "text"),
+    [
+        ("no velocity rule", VALID_RULES.replace(VELOCITY_RULE, "")),
+        (
+            "two velocity windows",
+            VALID_RULES.replace(
+                VELOCITY_RULE,
+                VELOCITY_RULE
+                + "  - {code: HOURLY_VELOCITY, type: attempts_over, window_seconds: 3600,"
+                " max_attempts: 2, points: 40}\n",
+            ),
+        ),
+    ],
+)
+def test_rule_set_needs_exactly_one_velocity_rule(tmp_path: Path, case: str, text: str) -> None:
+    # The store records one attempts_in_window count (plan 2.3), so a rule set
+    # with no window or a second window cannot be evaluated as written.
+    assert text != VALID_RULES
+    write_rules(tmp_path, "v1.yaml", text)
+
+    with pytest.raises(RuleSetError):
+        load_rule_sets(tmp_path)
+
+
 @control("FS-01")
 @control("VER-01")
 def test_t19_duplicate_version_fails_to_load(tmp_path: Path) -> None:
