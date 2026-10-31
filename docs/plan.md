@@ -458,14 +458,14 @@ optional (challenge 01).
 - Property-based determinism tests with Hypothesis (new dependency, needs approval).
   The seeded batch in T04 covers A1 without it.
 - Dependency scan in CI (pip-audit, new dependency)
-- Dockerfile
+- Containerfile
 - `SPEC.md`: not built (D5)
 
 ---
 
 ## 7. Risks and ambiguities
 
-### Author decisions (approved as proposed on 2026-10-31)
+### Author decisions (approved as proposed on 2026-11-01)
 
 | # | Question | Decision |
 | --- | --- | --- |

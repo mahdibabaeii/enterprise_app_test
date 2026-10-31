@@ -34,6 +34,9 @@ creating it is part of the current step.
 - Stay inside this repository folder. Do not touch files outside it.
 - Do not add dependencies without asking, and say why when you do.
 - When unsure about scope or design, stop and ask rather than guess.
+- Containers: this project uses Podman, not Docker. The optional container file
+  is named Containerfile. Never write docker commands. Containers are optional
+  and are built only after the must-tier work is green.
 
 ## Domain rules (non-negotiable)
 - Decisions are deterministic: same input and same rule version, same output.

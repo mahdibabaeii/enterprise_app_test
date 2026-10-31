@@ -178,7 +178,7 @@ Cost: about 20 lines and 3 tests.
 
 ## Author decisions
 
-Decided by the author (gate 2) on 2026-10-31 after reviewing the challenger's
+Decided by the author (gate 2) on 2026-11-01 after reviewing the challenger's
 recommendations. `docs/plan.md` has been updated to match. Two challenges were
 overruled.
 
