@@ -38,6 +38,11 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return dict(pairs)
 
 
+def _reject_number(token: str) -> Any:
+    """NaN, Infinity and floats: Python reads them, SQLite's JSON functions do not agree."""
+    raise NonCanonicalPayload("is not canonical JSON: holds a non-integer number")
+
+
 def parse_canonical(data: bytes) -> Any:
     """Parse stored payload bytes, requiring them to be exactly their canonical form.
 
@@ -49,7 +54,12 @@ def parse_canonical(data: bytes) -> Any:
     except UnicodeDecodeError as error:
         raise NonCanonicalPayload("is not canonical JSON") from error
     try:
-        value = json.loads(text, object_pairs_hook=_reject_duplicate_keys)
+        value = json.loads(
+            text,
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_float=_reject_number,
+            parse_constant=_reject_number,
+        )
     except json.JSONDecodeError as error:
         raise NonCanonicalPayload("is not valid JSON") from error
     if canonical_json(value) != data:

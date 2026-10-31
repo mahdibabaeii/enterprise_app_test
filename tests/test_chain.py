@@ -101,6 +101,13 @@ def test_parse_canonical_accepts_canonical_bytes() -> None:
         ('{"a":"é"}'.encode(), "not canonical"),
         (b'{"a":"\xff"}', "not canonical"),
         (b'{"a":1', "not valid JSON"),
+        # Python reads these; SQLite's JSON functions reject or null them, and
+        # plan 2.3 says the payload never holds floats.
+        (b'{"a":NaN}', "not canonical"),
+        (b'{"a":Infinity}', "not canonical"),
+        (b'{"a":-Infinity}', "not canonical"),
+        (b'{"a":0.5}', "not canonical"),
+        (b'{"a":0.0}', "not canonical"),
     ],
 )
 def test_parse_canonical_rejects_duplicate_keys_and_other_forms(data: bytes, problem: str) -> None:
