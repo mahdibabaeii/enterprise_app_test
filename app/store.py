@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, field_serializer
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_serializer
 
 from app.chain import (
     GENESIS_HASH,
@@ -51,8 +51,8 @@ class RecordInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     transaction_id: str
-    card_masked: str
-    card_ref: str
+    card_masked: str = Field(pattern=r"^\*{4}[0-9]{4}$")
+    card_ref: str = Field(pattern=r"^[0-9a-f]{32}$")
     card_status: Literal["active", "reported_stolen"]
     amount_minor: int
     currency: str

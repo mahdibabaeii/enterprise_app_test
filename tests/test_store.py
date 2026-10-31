@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from app import engine, store
 from app.chain import rule_set_sha256
@@ -440,6 +441,24 @@ def test_open_reader_does_not_block_an_append(chain: Store, raw: sqlite3.Connect
     assert raw.execute("SELECT count(*) FROM decisions").fetchone() == (1,)
     raw.execute("COMMIT")
     assert raw.execute("SELECT count(*) FROM decisions").fetchone() == (2,)
+
+
+# Data minimisation (plan 2.1): the log is immutable, so a card number must never reach it
+
+
+@control("DAT-01")
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("card_masked", "4111111111111111"),
+        ("card_masked", "****11111"),
+        ("card_ref", "4111111111111111"),
+        ("card_ref", "A" * 32),
+    ],
+)
+def test_store_input_refuses_anything_but_masked_card_and_card_ref(field: str, value: str) -> None:
+    with pytest.raises(ValidationError):
+        txn(**{field: value})
 
 
 # Fail safe on history (plan 2.3, R13)
