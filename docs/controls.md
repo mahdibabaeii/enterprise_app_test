@@ -9,14 +9,14 @@ Exact regulatory references are to be confirmed before they appear here
 
 | Id | Control | What the system does | Expectation it supports | Tests |
 | --- | --- | --- | --- | --- |
-| [EXP-01](#exp-01) | Explainability | Every decision returns reason codes and a score | Model risk management, fair treatment of customers | 35 |
-| [REP-01](#rep-01) | Reproducibility | Replay re-runs stored input on the stored rule version | Model risk, audit evidence | 8 |
-| [AUD-01](#aud-01) | Tamper evidence | Hash-chained log with verify that names the first altered record | Record integrity, internal audit | 33 |
-| [AUD-02](#aud-02) | Append-only, serialised appends | No update or delete path; concurrent appends cannot extend the same hash | Record integrity, internal audit | 8 |
-| [ACC-01](#acc-01) | Least privilege | Analyst and auditor roles enforced on every endpoint, deny by default | Access control, separation of duties | 7 |
-| [FS-01](#fs-01) | Fail safe | Errors and missing data give step-up, never approve | Operational resilience | 25 |
-| [DAT-01](#dat-01) | Data minimisation | Synthetic data only, card numbers masked to the last 4 digits, no sensitive values in logs | Privacy, payment data handling | 11 |
-| [VER-01](#ver-01) | Versioned change | Rules are versioned files, and each decision records its version | Change management | 20 |
+| [EXP-01](#exp-01) | Explainability | Every decision returns reason codes and a score | Model risk management, fair treatment of customers | 63 |
+| [REP-01](#rep-01) | Reproducibility | Replay re-runs stored input on the stored rule version | Model risk, audit evidence | 11 |
+| [AUD-01](#aud-01) | Tamper evidence | Hash-chained log with verify that names the first altered record | Record integrity, internal audit | 46 |
+| [AUD-02](#aud-02) | Append-only, serialised appends | No update or delete path; concurrent appends cannot extend the same hash | Record integrity, internal audit | 10 |
+| [ACC-01](#acc-01) | Least privilege | Analyst and auditor roles enforced on every endpoint, deny by default | Access control, separation of duties | 13 |
+| [FS-01](#fs-01) | Fail safe | Errors and missing data give step-up, never approve | Operational resilience | 29 |
+| [DAT-01](#dat-01) | Data minimisation | Synthetic data only, card numbers masked to the last 4 digits, no sensitive values in logs | Privacy, payment data handling | 14 |
+| [VER-01](#ver-01) | Versioned change | Rules are versioned files, and each decision records its version | Change management | 25 |
 
 ## EXP-01
 
@@ -33,6 +33,16 @@ Exact regulatory references are to be confirmed before they appear here
   - unusual amount starts at one thousand dollars (2 cases)
   - new merchant at night window (5 cases)
   - home country merchant is not foreign
+- `tests/test_independent.py`
+  - threshold edges with reachable scores (5 cases)
+  - v1 scores and reasons (6 cases)
+  - v1 score of exactly 70 declines
+  - hard rule declines whatever the score (4 cases)
+  - sixth attempt in a minute fires and fifth does not
+  - velocity window edges (3 cases)
+  - velocity uses transaction time and card
+  - night uses the transaction offset (6 cases)
+  - merchant is new per card
 - `tests/test_store.py`
   - hard rule and rule error reasons are stored as specified
   - fifth attempt in a minute does not fire and sixth does
@@ -53,6 +63,10 @@ Exact regulatory references are to be confirmed before they appear here
 - `tests/test_engine.py`
   - T01: same input and rule version give the same decision
   - T02: night rule uses the transaction offset not the server timezone
+- `tests/test_independent.py`
+  - same inputs on two fresh databases give identical records
+  - every stored decision replays as a match
+  - decision ignores server clock and process timezone
 - `tests/test_store.py`
   - T42: received at is evidence only
 
@@ -71,6 +85,13 @@ Exact regulatory references are to be confirmed before they appear here
   - tamper takes a record number
   - tamper twice refuses rather than restoring the record
   - tamper bypasses and restores triggers
+- `tests/test_independent.py`
+  - empty and fresh chains verify intact
+  - editing any record names that record (5 cases)
+  - outcome flip in middle record is named
+  - edit with recomputed hash breaks at next record
+  - structural tampering is named (4 cases)
+  - stored record hash covers payload and previous hash
 - `tests/test_store.py`
   - stored record holds exactly the hashed payload
   - T06: fresh chain and empty chain verify intact
@@ -91,6 +112,9 @@ Exact regulatory references are to be confirmed before they appear here
 
 - `tests/test_api.py`
   - T27: concurrent posts form one linked chain
+- `tests/test_independent.py`
+  - concurrent posts build one linked chain
+  - database refuses a second record on the same prev hash
 - `tests/test_store.py`
   - T26: concurrent appends form one linked chain
   - T28: database refuses a second record with an existing hash (2 cases)
@@ -108,6 +132,10 @@ Exact regulatory references are to be confirmed before they appear here
   - T13: missing or unknown role cannot create (4 cases)
   - T14: role matrix covers every route
   - route without an allowlist entry refuses every role
+- `tests/test_independent.py`
+  - auditor cannot create a decision
+  - missing or unknown role gets 401 and adds nothing (4 cases)
+  - role matrix
 
 ## FS-01
 
@@ -127,6 +155,10 @@ Exact regulatory references are to be confirmed before they appear here
   - T17: rule error never downgrades a score decline
   - T41: hard rule error gives step up
   - T41: later matching hard rule still declines
+- `tests/test_independent.py`
+  - unreadable history gives step up and replays
+  - write failure returns 503 and no decision
+  - invalid rule file stops startup (2 cases)
 - `tests/test_rules.py`
   - T19: invalid rule file fails to load (7 cases)
   - rule set needs exactly one velocity rule (2 cases)
@@ -147,6 +179,10 @@ Exact regulatory references are to be confirmed before they appear here
   - T30: documented 422 body has no input fields
   - T31: card is masked and referenced by keyed hash
   - T44: rule error logs rule code and class only
+- `tests/test_independent.py`
+  - full card number never leaves the boundary
+  - luhn invalid card is rejected without echo
+  - card ref is keyed and stable
 - `tests/test_store.py`
   - store input refuses anything but masked card and card ref (4 cases)
 
@@ -163,6 +199,12 @@ Exact regulatory references are to be confirmed before they appear here
   - rules sha256 is the hash of the canonical validated rule set
   - rules sha256 ignores comments line endings and key order
   - rules sha256 changes when a point value changes
+- `tests/test_independent.py`
+  - thresholds come from the rule file
+  - replay reports rule content changes
+  - highest version is active and replay uses stored version
+  - replay of unloaded rule version is 409
+  - stored payload has exactly the planned fields
 - `tests/test_rules.py`
   - v1 rule set holds the prd values
   - highest integer version is active
@@ -199,3 +241,7 @@ These cover input validation, lookups, the demo commands, start-up
 - `tests/test_demo.py`: tamper on a broken demo database says how to recreate it (2 cases)
 - `tests/test_demo.py`: tamper without a demo database says how to create one
 - `tests/test_engine.py`: transaction requires a timestamp offset
+- `tests/test_independent.py`: bad input is rejected and not recorded (20 cases)
+- `tests/test_independent.py`: boundary input is accepted (5 cases)
+- `tests/test_independent.py`: unknown id is 404
+- `tests/test_independent.py`: rejected requests are not velocity attempts
