@@ -10,7 +10,7 @@ import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.engine import Features, Outcome, Reason
 from app.rules import Thresholds
@@ -74,6 +74,15 @@ class TransactionRequest(BaseModel):
         if not luhn_valid(value):
             raise ValueError("card number fails the Luhn check")
         return value
+
+    @model_validator(mode="after")
+    def _card_number_not_in_identifiers(self) -> "TransactionRequest":
+        # Identifiers are stored and returned in clear (red team R4). Only the submitted
+        # card number is refused: real merchant ids can be long digit strings.
+        for field in ("transaction_id", "merchant_id"):
+            if self.card_number in getattr(self, field):
+                raise ValueError(f"{field} must not contain the card number")
+        return self
 
     def to_record(self, card_ref_key: str) -> RecordInput:
         """The transaction as stored: masked card and keyed card reference, no card number."""

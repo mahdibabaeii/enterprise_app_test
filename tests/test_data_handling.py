@@ -163,3 +163,20 @@ def test_t44_rule_error_logs_rule_code_and_class_only(
     assert "M-SECRET-77" not in caplog.text
     assert "4321" not in caplog.text
     assert "cannot score" not in caplog.text
+
+
+@control("DAT-01")
+@pytest.mark.parametrize("field", ["transaction_id", "merchant_id"])
+def test_card_number_in_identifier_fields_is_rejected(
+    client: TestClient, db_path: Path, field: str
+) -> None:
+    # Red team R4: identifiers are stored and returned in clear, so they must not
+    # carry the card number, whole or embedded.
+    for value in (CARD, f"T-{CARD}-X"):
+        response = client.post("/decisions", json={**VALID, field: value}, headers=ANALYST)
+
+        assert response.status_code == 422, value
+        for run in twelve_digit_runs(CARD):
+            assert run not in response.text
+    assert not db_path.exists() or CARD[:12].encode() not in database_bytes(db_path)
+    assert client.get("/decisions", headers=AUDITOR).json() == []
