@@ -3,6 +3,7 @@
 Run with: uvicorn app.main:create_app_from_env --factory
 """
 
+import json
 import logging
 import os
 from collections.abc import Callable
@@ -83,6 +84,24 @@ def require_role(
     return x_role
 
 
+def _refuse_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    keys = [key for key, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise RequestValidationError(
+            [{"loc": ("body",), "msg": "duplicate key in JSON body", "type": "json_duplicate_key"}]
+        )
+    return dict(pairs)
+
+
+async def reject_duplicate_keys(request: Request) -> None:
+    """Refuse a body that repeats a key. json.loads keeps the last duplicate, so another
+    parser reading the first could see a different transaction (red team R2)."""
+    try:
+        json.loads(await request.body(), object_pairs_hook=_refuse_duplicate_keys)
+    except (ValueError, UnicodeDecodeError):
+        return  # Not JSON at all: FastAPI's own body validation reports it.
+
+
 async def validation_error(request: Request, error: Exception) -> JSONResponse:
     """422 without the submitted values, so a card number is never echoed (plan R19)."""
     assert isinstance(error, RequestValidationError)
@@ -129,6 +148,7 @@ def create_app(
         status_code=201,
         response_model=CreatedDecision,
         responses={**ERRORS, 503: {"model": ErrorResponse}},
+        dependencies=[Depends(reject_duplicate_keys)],
     )
     def create_decision(transaction: TransactionRequest) -> CreatedDecision:
         try:

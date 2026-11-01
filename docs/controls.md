@@ -222,6 +222,7 @@ These cover input validation, lookups, the demo commands, start-up
 (acceptance criterion A9, which has no control in the PRD) and this generator.
 
 - `tests/test_api.py`: T34: bad input gives 422 (18 cases)
+- `tests/test_api.py`: duplicate json key in request is rejected (3 cases)
 - `tests/test_api.py`: T34: missing field gives 422
 - `tests/test_api.py`: T35: unknown id gives 404 (3 cases)
 - `tests/test_api.py`: id outside the record id range gives 422 (4 cases)

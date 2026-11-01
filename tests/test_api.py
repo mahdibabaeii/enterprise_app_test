@@ -3,6 +3,7 @@ docs/plan.md sections 2.1, 2.5 and 3 (endpoints, roles, status codes), using the
 v1 rules: foreign +30, amount >= 1,000.00 AUD +25, more than 5 attempts in 60 s
 +40, new merchant 00:00-05:59 local +10; thresholds 30 and 70."""
 
+import json
 import shutil
 import sqlite3
 import threading
@@ -452,6 +453,37 @@ def test_zero_prefixed_card_cannot_reset_velocity(client: TestClient, db_path: P
     assert sixth.status_code == 422
     assert sixth.json()["detail"][0]["loc"] == ["body", "card_number"]
     assert record_count(db_path) == 5
+
+
+@pytest.mark.parametrize(
+    ("field", "first", "last"),
+    [
+        ("card_status", '"reported_stolen"', '"active"'),
+        ("card_number", '"4539578763621487"', f'"{CARD}"'),
+        ("amount_minor", "500000", "5000"),
+    ],
+)
+def test_duplicate_json_key_in_request_is_rejected(
+    client: TestClient, db_path: Path, field: str, first: str, last: str
+) -> None:
+    # Red team R2. json.loads keeps the last duplicate, so a body could say
+    # reported_stolen to one parser and active to this one. Bad input is rejected.
+    fields = {key: value for key, value in body().items() if key != field}
+    members = [f'"{field}":{first}']
+    members += [f'"{key}":{json.dumps(value)}' for key, value in fields.items()]
+    members += [f'"{field}":{last}']
+    raw = "{" + ",".join(members) + "}"
+
+    response = client.post(
+        "/decisions", content=raw, headers={**ANALYST, "Content-Type": "application/json"}
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == [
+        {"loc": ["body"], "msg": "duplicate key in JSON body", "type": "json_duplicate_key"}
+    ]
+    assert CARD[:12] not in response.text
+    assert record_count(db_path) == 0
 
 
 def test_t34_missing_field_gives_422(client: TestClient) -> None:
