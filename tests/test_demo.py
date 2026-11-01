@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import DEFAULT_DB, create_app
+from app.main import DEFAULT_DB, create_app_from_env
 from app.store import Store
 from scripts import seed, tamper
 from tests.controls import control
@@ -44,11 +44,16 @@ def test_demo_database_is_data_demo_db_in_the_repository() -> None:
     assert tamper.DEMO_DB == DEFAULT_DB
 
 
-def test_t32_app_starts_on_a_fresh_seeded_database(tmp_path: Path) -> None:
+def test_t32_app_starts_on_a_fresh_seeded_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     path = tmp_path / "demo.db"
     count = seed.seed(path)
+    # The same factory make start serves (A9), pointed at the temporary database.
+    monkeypatch.setenv("DECISIONS_DB", str(path))
+    monkeypatch.delenv("CARD_REF_KEY", raising=False)
 
-    with TestClient(create_app(path)) as client:
+    with TestClient(create_app_from_env()) as client:
         home = client.get("/")
         docs = client.get("/docs")
         listed = client.get("/decisions", headers=AUDITOR).json()
@@ -83,6 +88,32 @@ def test_seed_runs_every_sample_through_the_real_rules(tmp_path: Path) -> None:
     assert any(d["score"] == 65 and d["outcome"] == "step_up" for d in decisions)
     # make tamper's default record is a decline, so the edit turns it into an approve.
     assert decisions[tamper.DEFAULT_RECORD - 1]["outcome"] == "decline"
+
+
+# Expected v1 score and outcome of every sample, from the comments in seed.SAMPLES
+# and rules/v1.yaml. Hard-rule declines have no score (plan R11).
+EXPECTED_SAMPLES = [
+    ("DEMO-0001", 0, "approve"),
+    ("DEMO-0002", 65, "step_up"),
+    ("DEMO-0003", None, "decline"),
+    ("DEMO-0004", None, "decline"),
+    ("DEMO-0005", 25, "approve"),
+    ("DEMO-0006", 30, "step_up"),
+    *[(f"DEMO-{n:04d}", 30, "step_up") for n in range(7, 12)],
+    ("DEMO-0012", 70, "decline"),
+    ("DEMO-0013", 0, "approve"),
+    ("DEMO-0014", 10, "approve"),
+]
+
+
+def test_seed_gives_each_sample_its_documented_score_and_outcome(tmp_path: Path) -> None:
+    path = tmp_path / "demo.db"
+    seed.seed(path)
+    decisions = [Store(path).get(n) for n in range(1, len(seed.SAMPLES) + 1)]
+
+    actual = [(d["input"]["transaction_id"], d["score"], d["outcome"]) for d in decisions]
+
+    assert actual == EXPECTED_SAMPLES
 
 
 def test_seed_replaces_the_database_instead_of_appending(tmp_path: Path) -> None:
