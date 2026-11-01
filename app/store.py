@@ -179,6 +179,10 @@ class Store:
             except Exception as error:
                 logger.warning("history unavailable: %s", type(error).__name__)
                 features = None
+            # SQLite rolls back by itself on some errors (I/O, full, busy). In autocommit
+            # mode the insert would then commit alone, outside the write lock.
+            if not connection.in_transaction:
+                raise StoreWriteError("decision could not be recorded: transaction was rolled back")
             decision = decide(_engine_transaction(txn), features, rule_set)
             payload = {
                 "record_version": RECORD_VERSION,

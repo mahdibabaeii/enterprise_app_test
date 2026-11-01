@@ -299,6 +299,23 @@ def test_t43_write_failure_gives_503_and_no_decision(
     assert record_count(db_path) == 0
 
 
+@control("FS-01")
+def test_t43_history_read_that_rolls_back_gives_503_and_no_record(
+    client: TestClient, db_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # SQLite rolls the transaction back by itself on I/O, full-disk and busy errors.
+    def rolled_back_history(connection: sqlite3.Connection, *args: Any, **kwargs: Any) -> None:
+        connection.execute("ROLLBACK")
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(store, "read_features", rolled_back_history)
+    response = client.post("/decisions", json=body(), headers=ANALYST)
+
+    assert response.status_code == 503
+    assert "step-up" in response.json()["detail"]
+    assert record_count(db_path) == 0
+
+
 # A7: concurrency through the API
 
 
