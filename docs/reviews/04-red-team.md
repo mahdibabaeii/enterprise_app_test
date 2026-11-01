@@ -185,5 +185,5 @@ Each fix is its own commit, with a failing test first:
 | R4 | Fixed |
 | R5 | Fixed |
 | R6 | Fixed |
-| R7 | Not fixed: score can only rise; a country list is left for later |
+| R7 | Not fixed: score can only rise; recorded in docs/limitations.md |
 | R8 | Fixed |

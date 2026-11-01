@@ -139,6 +139,14 @@ calibrated on real data.
 
 Source: PRD limitations, plan D2.
 
+### Country codes are not checked against ISO 3166-1
+
+`merchant_country` must be two uppercase letters, but `ZZ` is accepted and
+scores as foreign. The score can only go up, so this cannot produce an
+approve. A full country list needs a maintained table or a new dependency.
+
+Source: review 04 R7.
+
 ### Duplicate transaction ids are not rejected
 
 A retried request is decided and recorded again, and it counts as another
