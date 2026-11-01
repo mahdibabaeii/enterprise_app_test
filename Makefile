@@ -12,13 +12,16 @@ PORT := 8000
 
 # Install, reseed the demo database, and serve the UI and API on port 8000.
 # The port is checked before reseeding, so a second start cannot wipe the
-# database under a server that is already running.
+# database under a server that is already running. DECISIONS_DB and
+# CARD_REF_KEY are cleared for the server so it serves exactly what the seed
+# wrote (data/demo.db, demo key); run uvicorn directly for other settings.
 start: .venv
 	@$(RUN) python -c "import socket, sys; s = socket.socket(); \
 	sys.exit(0) if s.connect_ex(('127.0.0.1', $(PORT))) else \
 	sys.exit('port $(PORT) is already in use; stop the other server first')"
 	$(RUN) python -m scripts.seed
 	@echo "Serving UI at http://localhost:$(PORT)/ and API docs at http://localhost:$(PORT)/docs"
+	env -u DECISIONS_DB -u CARD_REF_KEY \
 	$(RUN) uvicorn app.main:create_app_from_env --factory --host 127.0.0.1 --port $(PORT)
 
 verify: .venv
