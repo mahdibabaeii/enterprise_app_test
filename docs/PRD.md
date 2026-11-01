@@ -104,6 +104,8 @@ One page, served by the same process as the API, lets a reviewer see the control
 
 The UI holds no business logic and only calls the API. Swagger stays available at `/docs`.
 
+**Look.** The page follows the visual style of [cenksari/react-banking-app-template](https://github.com/cenksari/react-banking-app-template) (MIT): its palette, card-style panels, typography and badges. The style is reimplemented in plain CSS inside the single static HTML file. No React, no copied code and no build step.
+
 **Analyst session:** open as analyst, submit a transaction, read the decision, replay it, try edge cases near scores of 30 and 70.
 
 **Auditor session:** switch to auditor, attempt to create a decision and see 403, verify the chain, run `make tamper` to alter one stored record, verify again and see the first broken record named.

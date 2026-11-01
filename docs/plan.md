@@ -409,7 +409,7 @@ section 7 applies early.
 | 7 | Add hash-chained store | `app/chain.py`, `app/store.py`, T06–T09, T26, T28, T36, T39, T40, T42, `scripts/tamper_sim.py` | tamper simulation | 22 |
 | 8 | Add decision API and roles | `app/models.py`, `app/main.py`, T03, T05, T12–T14, T18, T27, T29–T31, T34, T35, T38, T43–T45, `scripts/replay_check.py` | determinism replay | 24 |
 | 9 | Add demo seed, tamper command and start target | `scripts/seed.py`, `scripts/tamper.py`, `make start/demo/tamper`, T32, CI step T33 | — | 8 |
-| 10 | Add one-page UI | `app/static/index.html`: role switcher, form, decision panel, recent table, verify bar | — | 12 |
+| 10 | Add one-page UI | `app/static/index.html`: role switcher, form, decision panel, recent table, verify bar. Visual style modelled on cenksari/react-banking-app-template (palette, card panels, typography, badges), reimplemented in plain CSS; no React, no copied code, no build step | — | 12 |
 | 11 | Add README | start command, demo walkthrough, caller contract, non-goals, limitations summary | — | 3 |
 | 12+ | Should items, one commit each | see section 6 | — | — |
 
@@ -418,7 +418,7 @@ about 30 minutes of build start, cut to the must list without any should items.
 
 UI checks: the UI has no logic to unit test. Step 10 is checked by rendering the
 page and walking through both sessions by hand, with screenshots, before the
-commit.
+commit. The screenshots are also compared against the reference template's look.
 
 ---
 
