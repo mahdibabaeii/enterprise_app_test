@@ -6,6 +6,8 @@ it into card_masked (last 4 digits) and card_ref (keyed hash) and drops it.
 
 import hashlib
 import hmac
+import re
+from datetime import datetime
 from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
@@ -15,6 +17,10 @@ from app.rules import Thresholds
 from app.store import RecordInput
 
 IDENTIFIER = r"^[A-Za-z0-9_-]+$"
+ISO_WITH_OFFSET = re.compile(
+    r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?([Zz]|[+-]\d{2}:?\d{2})",
+    re.ASCII,
+)
 
 
 def luhn_valid(number: str) -> bool:
@@ -46,9 +52,18 @@ class TransactionRequest(BaseModel):
     @field_validator("timestamp", mode="before")
     @classmethod
     def _iso_text(cls, value: object) -> object:
-        # Only ISO 8601 text: an epoch number has no offset to read local time from.
-        if not isinstance(value, str):
+        # Only ISO 8601 text with an explicit offset: epoch seconds, as a number or as
+        # text, have no offset to read local time from (plan 2.1, R5).
+        if not isinstance(value, str) or not ISO_WITH_OFFSET.fullmatch(value):
             raise ValueError("timestamp must be ISO 8601 text with a UTC offset")
+        return value
+
+    @field_validator("timestamp")
+    @classmethod
+    def _not_before_1970(cls, value: datetime) -> datetime:
+        # Keeps the velocity window start inside the datetime range.
+        if value.year < 1970:
+            raise ValueError("timestamp must not be before 1970")
         return value
 
     @field_validator("card_number")
