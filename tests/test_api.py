@@ -165,6 +165,50 @@ def test_t38_comment_only_rule_edit_still_matches(
     assert (replay["match"], replay["rules_match"]) == (True, True)
 
 
+def add_v2(rules_dir: Path) -> None:
+    """v2 = v1 with UNUSUAL_AMOUNT raised from 25 to 45 points."""
+    v1 = (rules_dir / "v1.yaml").read_text()
+    v2 = v1.replace("version: 1", "version: 2").replace("points: 25", "points: 45")
+    (rules_dir / "v2.yaml").write_text(v2)
+
+
+@control("VER-01")
+def test_replay_uses_each_records_own_rule_version(
+    tmp_path: Path, make_client: Callable[..., TestClient]
+) -> None:
+    rules_dir = copy_rules(tmp_path)
+    make_client(rules_dir=rules_dir).post("/decisions", json=PRD_EXAMPLE, headers=ANALYST)
+    add_v2(rules_dir)
+    v2_client = make_client(rules_dir=rules_dir)
+    # Under v2, a new GB merchant at 03:00 for 2,000 AUD: 30 + 45 + 10 = 85.
+    v2_body = {**PRD_EXAMPLE, "transaction_id": "T-0008", "merchant_id": "M-5678"}
+    created = v2_client.post("/decisions", json=v2_body, headers=ANALYST).json()
+
+    first = v2_client.get("/decisions/1/replay", headers=AUDITOR).json()
+    second = v2_client.get("/decisions/2/replay", headers=AUDITOR).json()
+
+    assert (created["rule_version"], created["score"], created["outcome"]) == (2, 85, "decline")
+    assert (first["match"], first["rules_match"], first["replayed"]["score"]) == (True, True, 65)
+    assert (second["match"], second["rules_match"], second["replayed"]["score"]) == (True, True, 85)
+
+
+@control("VER-01")
+def test_replay_under_a_rule_version_no_longer_loaded_gives_409(
+    tmp_path: Path, make_client: Callable[..., TestClient]
+) -> None:
+    rules_dir = copy_rules(tmp_path)
+    make_client(rules_dir=rules_dir).post("/decisions", json=PRD_EXAMPLE, headers=ANALYST)
+    add_v2(rules_dir)
+    (rules_dir / "v1.yaml").unlink()
+
+    response = make_client(rules_dir=rules_dir).get("/decisions/1/replay", headers=AUDITOR)
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "rule version 1 is not loaded; record 1 cannot be replayed"
+    }
+
+
 # A3: roles
 
 

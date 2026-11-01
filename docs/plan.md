@@ -307,6 +307,7 @@ Errors and status codes:
 | 401 | `X-Role` missing or not `analyst`/`auditor` (R14) |
 | 403 | The role is valid but not allowed on this endpoint |
 | 404 | Unknown decision id |
+| 409 | Replay of a record whose rule version is not loaded, so it cannot be replayed |
 | 422 | Validation failure. A custom handler removes the echoed input values so a card number is never returned (R19) |
 | 503 | The database cannot be written, including `IntegrityError`, an expired busy timeout and any other failure inside the append. No decision is returned (R13). Also a replay whose history cannot be read |
 
