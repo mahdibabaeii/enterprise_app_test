@@ -6,6 +6,7 @@ Run with: uvicorn app.main:create_app_from_env --factory
 import json
 import logging
 import os
+import re
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -200,9 +201,26 @@ def create_app(
     return app
 
 
+LONG_DIGIT_RUN = re.compile(r"\d{12,}")
+
+
+class MaskDigitRuns(logging.Filter):
+    """Mask runs of 12 or more digits in uvicorn access lines. The access log writes
+    the raw path and query string, which can hold a card number (red team R3)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                LONG_DIGIT_RUN.sub("[masked]", arg) if isinstance(arg, str) else arg
+                for arg in record.args
+            )
+        return True
+
+
 def create_app_from_env() -> FastAPI:
     """App factory for uvicorn, configured by DECISIONS_DB and CARD_REF_KEY."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s: %(message)s")
+    logging.getLogger("uvicorn.access").addFilter(MaskDigitRuns())
     db_path = Path(os.environ.get("DECISIONS_DB", DEFAULT_DB))
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return create_app(db_path, card_ref_key=os.environ.get("CARD_REF_KEY", DEMO_CARD_REF_KEY))

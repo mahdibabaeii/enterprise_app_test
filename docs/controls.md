@@ -15,7 +15,7 @@ Exact regulatory references are to be confirmed before they appear here
 | [AUD-02](#aud-02) | Append-only, serialised appends | No update or delete path; concurrent appends cannot extend the same hash | Record integrity, internal audit | 10 |
 | [ACC-01](#acc-01) | Least privilege | Analyst and auditor roles enforced on every endpoint, deny by default | Access control, separation of duties | 13 |
 | [FS-01](#fs-01) | Fail safe | Errors and missing data give step-up, never approve | Operational resilience | 29 |
-| [DAT-01](#dat-01) | Data minimisation | Synthetic data only, card numbers masked to the last 4 digits, no sensitive values in logs | Privacy, payment data handling | 16 |
+| [DAT-01](#dat-01) | Data minimisation | Synthetic data only, card numbers masked to the last 4 digits, no sensitive values in logs | Privacy, payment data handling | 17 |
 | [VER-01](#ver-01) | Versioned change | Rules are versioned files, and each decision records its version | Change management | 25 |
 
 ## EXP-01
@@ -182,6 +182,7 @@ Exact regulatory references are to be confirmed before they appear here
   - T31: card is masked and referenced by keyed hash
   - T44: rule error logs rule code and class only
   - card number in identifier fields is rejected (2 cases)
+  - access log never contains a card number
 - `tests/test_independent.py`
   - full card number never leaves the boundary
   - luhn invalid card is rejected without echo

@@ -5,9 +5,15 @@ card_ref is the first 32 hex characters of HMAC-SHA256(CARD_REF_KEY, card number
 import hashlib
 import hmac
 import logging
+import os
+import socket
+import subprocess
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -180,3 +186,50 @@ def test_card_number_in_identifier_fields_is_rejected(
             assert run not in response.text
     assert not db_path.exists() or CARD[:12].encode() not in database_bytes(db_path)
     assert client.get("/decisions", headers=AUDITOR).json() == []
+
+
+@control("DAT-01")
+def test_access_log_never_contains_a_card_number(tmp_path: Path) -> None:
+    # Red team R3: uvicorn's access log writes the raw path and query string, which
+    # TestClient never emits. Run the real server the way make start does.
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    env = {**os.environ, "DECISIONS_DB": str(tmp_path / "demo.db")}
+    server = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "app.main:create_app_from_env",
+            "--factory",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+        ],
+        cwd=Path(__file__).resolve().parent.parent,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    try:
+        base = f"http://127.0.0.1:{port}"
+        for _ in range(100):
+            try:
+                httpx.get(f"{base}/docs", timeout=1)
+                break
+            except httpx.TransportError:
+                time.sleep(0.1)
+        httpx.post(f"{base}/decisions?card_number=5555555555554444", headers=ANALYST)
+        httpx.get(f"{base}/decisions/{CARD}", headers=AUDITOR)
+        httpx.get(f"{base}/docs?ref=x{CARD}x")
+    finally:
+        server.terminate()
+        output, _ = server.communicate(timeout=10)
+
+    assert '"GET /docs' in output  # the access log is on, so the check below means something
+    for number in ("5555555555554444", CARD):
+        for run in twelve_digit_runs(number):
+            assert run not in output
