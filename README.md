@@ -146,6 +146,9 @@ These are out of scope for this slice by design:
 
 ## Known limitations
 
+The full list, with sources and the production answer to each, is in
+[`docs/limitations.md`](docs/limitations.md).
+
 - **The role header is not authentication.** Anyone can send
   `X-Role: auditor`. Header forgery is an accepted limitation, not a finding.
 - **The chain proves tampering only against someone who cannot rewrite all of
@@ -187,7 +190,9 @@ These are out of scope for this slice by design:
 | [`docs/plan.md`](docs/plan.md) | Approved plan: record format, what is hashed, tests mapped to A1 to A9 (section 4) |
 | [`docs/controls.md`](docs/controls.md) | Controls and the tests behind each, generated from the test tags |
 | [`docs/challenges/`](docs/challenges/) | Independent challenge of the plan and the decisions taken |
-| [`docs/reviews/`](docs/reviews/) | Reviews of the store and the API, and the fixes they led to |
+| [`docs/reviews/`](docs/reviews/) | Reviews of the store, the API and the demo commands, and the fixes they led to |
+| [`docs/limitations.md`](docs/limitations.md) | What the slice does not do, why, and the production path |
+| [`AI_USAGE.md`](AI_USAGE.md) | How agents were used: delegation, verification, defects caught, human decisions and process slips |
 | [`AGENTS.md`](AGENTS.md) | Conventions the coding agents follow |
 | `app/` | API, engine, rules loader, store and the one-page UI |
 | `rules/` | Versioned rule sets |
@@ -204,7 +209,7 @@ the plan was proposed by an agent, challenged by a separate read-only agent and
 edited by the author before any code was written; each build step ended only
 when `make verify` exited 0; and independent reviews of the store and the API
 led to the fix commits in the history. Agent-made commits carry a
-`Co-authored-by: Amp` trailer.
+`Co-authored-by: Amp` trailer. [`AI_USAGE.md`](AI_USAGE.md) has the details.
 
 The UI's look is modelled on
 [cenksari/react-banking-app-template](https://github.com/cenksari/react-banking-app-template)
