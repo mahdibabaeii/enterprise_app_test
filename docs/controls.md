@@ -247,7 +247,7 @@ These cover input validation, lookups, the demo commands, start-up
 - `tests/test_demo.py`: seed replaces the database instead of appending
 - `tests/test_demo.py`: seed command takes no path so it cannot overwrite another file
 - `tests/test_demo.py`: tamper refuses any database but the demo one
-- `tests/test_demo.py`: tamper rejects a record that does not exist (3 cases)
+- `tests/test_demo.py`: tamper rejects a record that does not exist (4 cases)
 - `tests/test_demo.py`: tamper on a broken demo database says how to recreate it (2 cases)
 - `tests/test_demo.py`: tamper without a demo database says how to create one
 - `tests/test_engine.py`: transaction requires a timestamp offset

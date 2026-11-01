@@ -216,7 +216,7 @@ def test_tamper_refuses_any_database_but_the_demo_one(demo_db: Path, tmp_path: P
     assert Store(other).verify().intact
 
 
-@pytest.mark.parametrize("argv", [["999"], ["0"], ["three"]])
+@pytest.mark.parametrize("argv", [["999"], ["0"], ["three"], ["99999999999999999999"]])
 def test_tamper_rejects_a_record_that_does_not_exist(
     demo_db: Path, argv: list[str], capsys: pytest.CaptureFixture[str]
 ) -> None:

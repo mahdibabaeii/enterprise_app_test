@@ -71,7 +71,8 @@ def main(argv: list[str]) -> int:
     try:
         record_id = int(argv[0]) if argv else DEFAULT_RECORD
         old, new = tamper(DEMO_DB, record_id)
-    except (ValueError, LookupError, TamperRefused) as error:
+    except (ValueError, LookupError, OverflowError, TamperRefused) as error:
+        # OverflowError: a record number beyond SQLite's integer range (red team R8).
         print(f"tamper failed: {error}", file=sys.stderr)
         return 1
     except sqlite3.Error as error:
