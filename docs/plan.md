@@ -308,7 +308,7 @@ Errors and status codes:
 | 403 | The role is valid but not allowed on this endpoint |
 | 404 | Unknown decision id |
 | 422 | Validation failure. A custom handler removes the echoed input values so a card number is never returned (R19) |
-| 503 | The database cannot be written, including `IntegrityError` and an expired busy timeout. No decision is returned (R13) |
+| 503 | The database cannot be written, including `IntegrityError`, an expired busy timeout and any other failure inside the append. No decision is returned (R13). Also a replay whose history cannot be read |
 
 Logging: one INFO line per decision with `id`, `outcome`, `score` and
 `card_masked`. A rule error logs a WARNING with the rule code and the exception

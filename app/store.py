@@ -46,6 +46,10 @@ class StoreWriteError(Exception):
     """The decision could not be recorded. Nothing was written."""
 
 
+class HistoryUnavailable(Exception):
+    """Earlier records could not be read, so a replay cannot recompute features."""
+
+
 class RuleVersionUnavailable(Exception):
     """A stored record names a rule version that is not loaded, so it cannot be replayed."""
 
@@ -205,7 +209,9 @@ class Store:
             if inserted.rowcount != 1:
                 raise StoreWriteError("decision could not be recorded: no row was inserted")
             connection.execute("COMMIT")
-        except sqlite3.Error as error:
+        except StoreWriteError:
+            raise
+        except Exception as error:
             raise StoreWriteError(
                 f"decision could not be recorded: {type(error).__name__}: {error}"
             ) from error
@@ -266,6 +272,10 @@ class Store:
             connection = self._connect()
             try:
                 recomputed = read_features(connection, txn, rule_set, before_id=record_id)
+            except Exception as error:
+                raise HistoryUnavailable(
+                    f"history for record {record_id} could not be read: {type(error).__name__}"
+                ) from error
             finally:
                 connection.close()
         stored = DecisionView(

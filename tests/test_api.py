@@ -401,6 +401,49 @@ def test_t35_unknown_id_gives_404(client: TestClient, path: str) -> None:
     assert response.json() == {"detail": "decision not found"}
 
 
+@pytest.mark.parametrize("decision_id", ["0", "9223372036854775808"])
+@pytest.mark.parametrize("suffix", ["", "/replay"])
+def test_id_outside_the_record_id_range_gives_422(
+    client: TestClient, decision_id: str, suffix: str
+) -> None:
+    # 2**63 is one past the largest SQLite integer.
+    response = client.get(f"/decisions/{decision_id}{suffix}", headers=AUDITOR)
+
+    assert response.status_code == 422
+
+
+@control("FS-01")
+def test_append_failure_outside_sqlite_gives_503_and_no_record(
+    make_client: Callable[..., TestClient], db_path: Path
+) -> None:
+    def broken_clock() -> datetime:
+        raise RuntimeError("clock unavailable")
+
+    response = make_client(clock=broken_clock).post("/decisions", json=body(), headers=ANALYST)
+
+    assert response.status_code == 503
+    assert "step-up" in response.json()["detail"]
+    assert record_count(db_path) == 0
+
+
+def test_replay_with_unreadable_history_gives_503(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client.post("/decisions", json=body(), headers=ANALYST)
+
+    def broken_history(*args: Any, **kwargs: Any) -> None:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(store, "read_features", broken_history)
+    response = client.get("/decisions/1/replay", headers=AUDITOR)
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "history for record 1 could not be read: OperationalError,"
+        " so the decision could not be replayed"
+    }
+
+
 def test_list_returns_the_latest_20_newest_first(client: TestClient) -> None:
     for n in range(1, 23):
         client.post("/decisions", json=body(transaction_id=f"T-{n:02d}"), headers=ANALYST)

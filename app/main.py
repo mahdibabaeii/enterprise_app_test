@@ -11,12 +11,14 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.models import CreatedDecision, DecisionRecord, ErrorResponse, TransactionRequest
 from app.rules import RULES_DIR, active_rule_set, load_rule_sets
 from app.store import (
+    HistoryUnavailable,
     ReplayResult,
     RuleVersionUnavailable,
     Store,
@@ -31,6 +33,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = REPO_ROOT / "data" / "demo.db"
 INDEX_HTML = Path(__file__).resolve().parent / "static" / "index.html"
 RECENT_LIMIT = 20
+# Record ids are SQLite integers; a larger id cannot be bound, so it is a 422.
+DecisionId = Annotated[int, PathParam(ge=1, le=2**63 - 1)]
 
 ROLES = frozenset({"analyst", "auditor"})
 BOTH = frozenset({"analyst", "auditor"})
@@ -127,7 +131,7 @@ def create_app(
         response_model=DecisionRecord,
         responses={**ERRORS, 404: {"model": ErrorResponse}},
     )
-    def get_decision(decision_id: int) -> DecisionRecord:
+    def get_decision(decision_id: DecisionId) -> DecisionRecord:
         payload = decisions.get(decision_id)
         if payload is None:
             raise HTTPException(404, NOT_FOUND)
@@ -136,13 +140,20 @@ def create_app(
     @app.get(
         "/decisions/{decision_id}/replay",
         response_model=ReplayResult,
-        responses={**ERRORS, 404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+        responses={
+            **ERRORS,
+            404: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
     )
-    def replay_decision(decision_id: int) -> ReplayResult:
+    def replay_decision(decision_id: DecisionId) -> ReplayResult:
         try:
             result = decisions.replay(decision_id, rule_sets)
         except RuleVersionUnavailable as error:
             raise HTTPException(409, str(error)) from error
+        except HistoryUnavailable as error:
+            raise HTTPException(503, f"{error}, so the decision could not be replayed") from error
         if result is None:
             raise HTTPException(404, NOT_FOUND)
         return result
