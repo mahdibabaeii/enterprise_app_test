@@ -4,7 +4,8 @@ Plays someone with direct database access: drops any triggers on the decisions
 table, flips one record's outcome inside its payload without touching its hash,
 and restores the triggers (plan 2.4). GET /audit/verify then names that record.
 
-Only data/demo.db can be tampered with; any other path is refused.
+Only data/demo.db can be tampered with; any other path is refused. A record that
+is already altered is refused too, because flipping it again could restore it.
 
 Usage: python -m scripts.tamper [record_id]   (default: record 3)
 """
@@ -14,6 +15,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from app.chain import sha256_hex
 from app.main import DEFAULT_DB
 
 DEMO_DB = DEFAULT_DB
@@ -22,7 +24,7 @@ FLIPPED = {"approve": "decline", "step_up": "approve", "decline": "approve"}
 
 
 class TamperRefused(Exception):
-    """The target is not the demo database."""
+    """The target is not the demo database, or the record is already altered."""
 
 
 def tamper(path: Path, record_id: int) -> tuple[str, str]:
@@ -33,10 +35,15 @@ def tamper(path: Path, record_id: int) -> tuple[str, str]:
     try:
         connection.execute("BEGIN IMMEDIATE")
         row = connection.execute(
-            "SELECT payload FROM decisions WHERE id = ?", (record_id,)
+            "SELECT payload, hash FROM decisions WHERE id = ?", (record_id,)
         ).fetchone()
         if row is None:
             raise LookupError(f"record {record_id} does not exist in {path}")
+        # A second flip could write back the original bytes and hide the first tamper.
+        if sha256_hex(row[0].encode()) != row[1]:
+            raise TamperRefused(
+                f"record {record_id} is already altered; run make demo to reset the demo database"
+            )
         triggers = connection.execute(
             "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'decisions'"
         ).fetchall()

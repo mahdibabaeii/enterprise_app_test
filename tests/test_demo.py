@@ -121,6 +121,21 @@ def test_tamper_takes_a_record_number(demo_db: Path) -> None:
 
 
 @control("AUD-01")
+def test_tamper_twice_refuses_rather_than_restoring_the_record(
+    demo_db: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Record 3 is a decline: a second flip would write back the original bytes.
+    assert tamper.main([]) == 0
+
+    assert tamper.main([]) == 1
+
+    result = Store(demo_db).verify()
+    assert (result.intact, result.first_broken_id) == (False, tamper.DEFAULT_RECORD)
+    assert payload_outcome(demo_db, tamper.DEFAULT_RECORD) == "approve"
+    assert "make demo" in capsys.readouterr().err
+
+
+@control("AUD-01")
 def test_tamper_bypasses_and_restores_triggers(demo_db: Path) -> None:
     trigger = (
         "CREATE TRIGGER decisions_no_update BEFORE UPDATE ON decisions"
