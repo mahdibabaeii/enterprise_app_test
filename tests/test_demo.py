@@ -190,6 +190,24 @@ def test_tamper_rejects_a_record_that_does_not_exist(
     assert capsys.readouterr().err
 
 
+@pytest.mark.parametrize("content", [b"", b"hello, not a database"])
+def test_tamper_on_a_broken_demo_database_says_how_to_recreate_it(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    content: bytes,
+) -> None:
+    broken = tmp_path / "demo.db"
+    broken.write_bytes(content)
+    monkeypatch.setattr(tamper, "DEMO_DB", broken)
+
+    assert tamper.main([]) == 1
+
+    error = capsys.readouterr().err
+    assert error.startswith("tamper failed:")
+    assert "make demo" in error
+
+
 def test_tamper_without_a_demo_database_says_how_to_create_one(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

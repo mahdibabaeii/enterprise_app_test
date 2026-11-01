@@ -74,6 +74,11 @@ def main(argv: list[str]) -> int:
     except (ValueError, LookupError, TamperRefused) as error:
         print(f"tamper failed: {error}", file=sys.stderr)
         return 1
+    except sqlite3.Error as error:
+        print(
+            f"tamper failed: {error}; run make demo to recreate the demo database", file=sys.stderr
+        )
+        return 1
     print(
         f"tampered record {record_id} in {DEMO_DB}: outcome {old} -> {new}, hash left unchanged."
         " Verify the chain as auditor to see it named."
