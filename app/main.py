@@ -15,7 +15,14 @@ from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 
-from app.models import CreatedDecision, DecisionRecord, ErrorResponse, TransactionRequest
+from app.models import (
+    CreatedDecision,
+    DecisionRecord,
+    ErrorResponse,
+    TransactionRequest,
+    ValidationErrorResponse,
+    ValidationIssue,
+)
 from app.rules import RULES_DIR, active_rule_set, load_rule_sets
 from app.store import (
     HistoryUnavailable,
@@ -58,6 +65,7 @@ NO_DECISION = (
 ERRORS = {
     401: {"model": ErrorResponse},
     403: {"model": ErrorResponse},
+    422: {"model": ValidationErrorResponse},
 }
 
 
@@ -79,10 +87,17 @@ async def validation_error(request: Request, error: Exception) -> JSONResponse:
     """422 without the submitted values, so a card number is never echoed (plan R19)."""
     assert isinstance(error, RequestValidationError)
     detail = [
-        {"loc": list(item["loc"]), "msg": item["msg"], "type": item["type"]}
+        ValidationIssue(
+            # An unexpected field's name is caller input too, so it is cut from loc.
+            loc=list(item["loc"][:-1] if item["type"] == "extra_forbidden" else item["loc"]),
+            msg=item["msg"],
+            type=item["type"],
+        )
         for item in error.errors()
     ]
-    return JSONResponse(status_code=422, content={"detail": detail})
+    return JSONResponse(
+        status_code=422, content=ValidationErrorResponse(detail=detail).model_dump()
+    )
 
 
 def create_app(

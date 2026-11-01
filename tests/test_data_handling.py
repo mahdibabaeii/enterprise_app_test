@@ -98,6 +98,29 @@ def test_t30_validation_errors_never_echo_input(client: TestClient) -> None:
 
 
 @control("DAT-01")
+def test_t30_unexpected_field_named_with_a_card_number_is_not_echoed(client: TestClient) -> None:
+    response = client.post("/decisions", json={**VALID, CARD: "x"}, headers=ANALYST)
+
+    assert response.status_code == 422
+    for run in twelve_digit_runs(CARD):
+        assert run not in response.text
+    assert response.json()["detail"] == [
+        {"loc": ["body"], "msg": "Extra inputs are not permitted", "type": "extra_forbidden"}
+    ]
+
+
+@control("DAT-01")
+def test_t30_documented_422_body_has_no_input_fields(client: TestClient) -> None:
+    schema = client.get("/openapi.json").json()
+    create = schema["paths"]["/decisions"]["post"]["responses"]["422"]
+    name = create["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+    issue = schema["components"]["schemas"][name]["properties"]["detail"]["items"]["$ref"]
+
+    fields = schema["components"]["schemas"][issue.rsplit("/", 1)[-1]]["properties"]
+    assert set(fields) == {"loc", "msg", "type"}
+
+
+@control("DAT-01")
 def test_t31_card_is_masked_and_referenced_by_keyed_hash() -> None:
     request = TransactionRequest.model_validate({**VALID, "card_number": "4111111111111111"})
 

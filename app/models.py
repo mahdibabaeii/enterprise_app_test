@@ -107,3 +107,15 @@ class CreatedDecision(DecisionRecord):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class ValidationIssue(BaseModel):
+    """One validation failure. Holds no submitted value, so no card number (plan R19)."""
+
+    loc: list[str | int]
+    msg: str
+    type: str
+
+
+class ValidationErrorResponse(BaseModel):
+    detail: list[ValidationIssue]
