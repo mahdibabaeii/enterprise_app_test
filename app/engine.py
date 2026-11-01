@@ -5,6 +5,7 @@ its own UTC offset. Fail safe: a rule error or missing history raises the
 outcome to at least step_up and never downgrades a decline.
 """
 
+import logging
 from collections.abc import Callable
 from typing import Any, Literal
 
@@ -20,6 +21,8 @@ from app.rules import (
     RuleSet,
     Thresholds,
 )
+
+logger = logging.getLogger(__name__)
 
 Outcome = Literal["approve", "step_up", "decline"]
 SEVERITY: dict[Outcome, int] = {"approve": 0, "step_up": 1, "decline": 2}
@@ -116,7 +119,9 @@ def outcome_for_score(score: int, thresholds: Thresholds) -> Outcome:
     return "approve"
 
 
-def _rule_error(rule: Any) -> Reason:
+def _rule_error(rule: Any, error: Exception) -> Reason:
+    """Log the rule code and exception class only: the message may hold input values."""
+    logger.warning("rule %s raised %s", rule.code, type(error).__name__)
     return Reason(code=RULE_ERROR, points=None, rule=rule.code)
 
 
@@ -128,8 +133,8 @@ def decide(txn: Transaction, features: Features | None, rule_set: RuleSet) -> De
     for hard_rule in rule_set.hard_rules:
         try:
             matched = HARD_RULE_CHECKS[hard_rule.type](hard_rule, txn)
-        except Exception:
-            reasons.append(_rule_error(hard_rule))
+        except Exception as error:
+            reasons.append(_rule_error(hard_rule, error))
             floor = "step_up"
             continue
         if matched:
@@ -145,8 +150,8 @@ def decide(txn: Transaction, features: Features | None, rule_set: RuleSet) -> De
             continue
         try:
             matched = SCORED_RULE_CHECKS[scored_rule.type](scored_rule, txn, features, rule_set)
-        except Exception:
-            reasons.append(_rule_error(scored_rule))
+        except Exception as error:
+            reasons.append(_rule_error(scored_rule, error))
             floor = "step_up"
             continue
         if matched:

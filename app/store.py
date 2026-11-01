@@ -6,6 +6,7 @@ those stored bytes. Appends are serialised with BEGIN IMMEDIATE. There is no
 update or delete path.
 """
 
+import json
 import logging
 import sqlite3
 from collections.abc import Callable
@@ -23,7 +24,7 @@ from app.chain import (
     rule_set_sha256,
     sha256_hex,
 )
-from app.engine import Decision, Features, Transaction, decide
+from app.engine import Decision, Features, Outcome, Reason, Transaction, decide
 from app.rules import AttemptsOver, RuleSet
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,10 @@ CREATE TABLE IF NOT EXISTS decisions (
 
 class StoreWriteError(Exception):
     """The decision could not be recorded. Nothing was written."""
+
+
+class RuleVersionUnavailable(Exception):
+    """A stored record names a rule version that is not loaded, so it cannot be replayed."""
 
 
 class RecordInput(BaseModel):
@@ -72,6 +77,29 @@ class VerifyResult(BaseModel):
     records_checked: int
     first_broken_id: int | None = None
     reason: str | None = None
+
+
+class DecisionView(BaseModel):
+    """The parts of a decision that replay compares."""
+
+    features: Features | None
+    score: int | None
+    reasons: list[Reason]
+    outcome: Outcome
+
+
+class ReplayResult(BaseModel):
+    """match: replaying the stored input and features gives the stored decision.
+    rules_match: the loaded rule set has the content the record was decided with.
+    features_match: features recomputed from earlier records equal the stored ones;
+    null when history was unavailable at decision time."""
+
+    id: int
+    match: bool
+    rules_match: bool
+    features_match: bool | None
+    stored: DecisionView
+    replayed: DecisionView
 
 
 def utc_now() -> datetime:
@@ -105,6 +133,10 @@ def read_features(
         attempts_in_window=len(in_window) + 1,
         merchant_seen_before=any(merchant == txn.merchant_id for _, merchant in history),
     )
+
+
+def _engine_transaction(txn: RecordInput) -> Transaction:
+    return Transaction.model_validate(txn.model_dump(include=set(Transaction.model_fields)))
 
 
 def _reasons(decision: Decision) -> list[dict[str, Any]]:
@@ -147,11 +179,7 @@ class Store:
             except Exception as error:
                 logger.warning("history unavailable: %s", type(error).__name__)
                 features = None
-            decision = decide(
-                Transaction.model_validate(txn.model_dump(include=set(Transaction.model_fields))),
-                features,
-                rule_set,
-            )
+            decision = decide(_engine_transaction(txn), features, rule_set)
             payload = {
                 "record_version": RECORD_VERSION,
                 "id": record_id,
@@ -182,7 +210,81 @@ class Store:
                 if connection.in_transaction:
                     connection.execute("ROLLBACK")
                 connection.close()
+        logger.info(
+            "decision %s outcome=%s score=%s card=%s",
+            payload["id"],
+            payload["outcome"],
+            payload["score"],
+            txn.card_masked,
+        )
         return payload
+
+    def get(self, record_id: int) -> dict[str, Any] | None:
+        """The stored payload of one record, or None. Integrity is checked by verify()."""
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT payload FROM decisions WHERE id = ?", (record_id,)
+            ).fetchone()
+        finally:
+            connection.close()
+        return None if row is None else json.loads(row[0])
+
+    def latest(self, limit: int) -> list[dict[str, Any]]:
+        """The stored payloads of the latest records, newest first."""
+        connection = self._connect()
+        try:
+            found = connection.execute(
+                "SELECT payload FROM decisions ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        finally:
+            connection.close()
+        return [json.loads(text) for (text,) in found]
+
+    def replay(self, record_id: int, rule_sets: dict[int, RuleSet]) -> ReplayResult | None:
+        """Re-run a stored decision on its stored rule version (plan 2.5). None if unknown id."""
+        payload = self.get(record_id)
+        if payload is None:
+            return None
+        rule_set = rule_sets.get(payload["rule_version"])
+        if rule_set is None:
+            raise RuleVersionUnavailable(
+                f"rule version {payload['rule_version']} is not loaded; record {record_id}"
+                " cannot be replayed"
+            )
+        txn = RecordInput.model_validate(payload["input"])
+        stored_features = (
+            None if payload["features"] is None else Features.model_validate(payload["features"])
+        )
+        decision = decide(_engine_transaction(txn), stored_features, rule_set)
+        recomputed: Features | None = None
+        if stored_features is not None:
+            connection = self._connect()
+            try:
+                recomputed = read_features(connection, txn, rule_set, before_id=record_id)
+            finally:
+                connection.close()
+        stored = DecisionView(
+            features=stored_features,
+            score=payload["score"],
+            reasons=payload["reasons"],
+            outcome=payload["outcome"],
+        )
+        replayed = DecisionView(
+            features=recomputed,
+            score=decision.score,
+            reasons=decision.reasons,
+            outcome=decision.outcome,
+        )
+        return ReplayResult(
+            id=record_id,
+            match=stored.model_dump(exclude={"features"})
+            == replayed.model_dump(exclude={"features"}),
+            rules_match=rule_set_sha256(rule_set) == payload["rules_sha256"],
+            features_match=None if stored_features is None else recomputed == stored_features,
+            stored=stored,
+            replayed=replayed,
+        )
 
     def verify(self) -> VerifyResult:
         """Walk the chain in id order and stop at the first broken record (plan 2.5)."""

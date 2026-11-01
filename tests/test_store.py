@@ -599,8 +599,7 @@ def test_t36_record_carries_the_rule_version_and_rule_set_hash(chain: Store) -> 
 
 @control("REP-01")
 def test_t42_received_at_is_evidence_only(tmp_path: Path) -> None:
-    # The store half of T42. Its other half, "replay ignores received_at", is
-    # pending: replay arrives in plan step 8.
+    # The store half of T42. The replay half is in tests/test_api.py.
     # Clock A reads 03:00 UTC (night), clock B 23:00 at +11:00. The transaction
     # is 14:00 local at a new merchant, so only a rule reading the clock would
     # see night.

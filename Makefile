@@ -14,3 +14,4 @@ verify: .venv
 	$(RUN) ruff format --check .
 	$(RUN) pytest
 	$(RUN) python -m scripts.tamper_sim
+	$(RUN) python -m scripts.replay_check
