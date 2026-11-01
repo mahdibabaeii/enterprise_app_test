@@ -72,7 +72,9 @@ def test_t32_app_starts_on_a_fresh_seeded_database(
 def test_seed_runs_every_sample_through_the_real_rules(tmp_path: Path) -> None:
     path = tmp_path / "demo.db"
     seed.seed(path)
-    decisions = [Store(path).get(n) for n in range(1, len(seed.SAMPLES) + 1)]
+    decisions = [
+        Store(path).get(n).model_dump(mode="json") for n in range(1, len(seed.SAMPLES) + 1)
+    ]
     codes = {reason["code"] for decision in decisions for reason in decision["reasons"]}
 
     # Every reason code in rules/v1.yaml appears in the demo data.
@@ -109,7 +111,9 @@ EXPECTED_SAMPLES = [
 def test_seed_gives_each_sample_its_documented_score_and_outcome(tmp_path: Path) -> None:
     path = tmp_path / "demo.db"
     seed.seed(path)
-    decisions = [Store(path).get(n) for n in range(1, len(seed.SAMPLES) + 1)]
+    decisions = [
+        Store(path).get(n).model_dump(mode="json") for n in range(1, len(seed.SAMPLES) + 1)
+    ]
 
     actual = [(d["input"]["transaction_id"], d["score"], d["outcome"]) for d in decisions]
 

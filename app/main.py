@@ -28,6 +28,7 @@ from app.models import (
 from app.rules import RULES_DIR, active_rule_set, load_rule_sets
 from app.store import (
     HistoryUnavailable,
+    RecordUnreadable,
     ReplayResult,
     RuleVersionUnavailable,
     Store,
@@ -158,20 +159,30 @@ def create_app(
             raise HTTPException(503, NO_DECISION) from error
         return CreatedDecision.model_validate({**payload, "thresholds": active.thresholds})
 
-    @app.get("/decisions", response_model=list[DecisionRecord], responses=ERRORS)
+    @app.get(
+        "/decisions",
+        response_model=list[DecisionRecord],
+        responses={**ERRORS, 409: {"model": ErrorResponse}},
+    )
     def recent_decisions() -> list[DecisionRecord]:
-        return [DecisionRecord.model_validate(p) for p in decisions.latest(RECENT_LIMIT)]
+        try:
+            return decisions.latest(RECENT_LIMIT)
+        except RecordUnreadable as error:
+            raise HTTPException(409, str(error)) from error
 
     @app.get(
         "/decisions/{decision_id}",
         response_model=DecisionRecord,
-        responses={**ERRORS, 404: {"model": ErrorResponse}},
+        responses={**ERRORS, 404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
     )
     def get_decision(decision_id: DecisionId) -> DecisionRecord:
-        payload = decisions.get(decision_id)
-        if payload is None:
+        try:
+            record = decisions.get(decision_id)
+        except RecordUnreadable as error:
+            raise HTTPException(409, str(error)) from error
+        if record is None:
             raise HTTPException(404, NOT_FOUND)
-        return DecisionRecord.model_validate(payload)
+        return record
 
     @app.get(
         "/decisions/{decision_id}/replay",
@@ -186,7 +197,7 @@ def create_app(
     def replay_decision(decision_id: DecisionId) -> ReplayResult:
         try:
             result = decisions.replay(decision_id, rule_sets)
-        except RuleVersionUnavailable as error:
+        except (RuleVersionUnavailable, RecordUnreadable) as error:
             raise HTTPException(409, str(error)) from error
         except HistoryUnavailable as error:
             raise HTTPException(503, f"{error}, so the decision could not be replayed") from error

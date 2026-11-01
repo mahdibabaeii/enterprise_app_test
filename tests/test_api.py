@@ -486,6 +486,37 @@ def test_duplicate_json_key_in_request_is_rejected(
     assert record_count(db_path) == 0
 
 
+@control("AUD-01")
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        "UPDATE decisions SET payload = 'x' WHERE id = 2",
+        "UPDATE decisions SET payload = json_set(payload, '$.features.attempts_in_window',"
+        " 'lots') WHERE id = 2",
+        "UPDATE decisions SET payload = json_remove(payload, '$.rule_version') WHERE id = 2",
+    ],
+)
+def test_unreadable_record_gives_409_not_500(
+    client: TestClient, db_path: Path, corrupt: str
+) -> None:
+    # Red team R5: one altered row made list, get and replay return 500 while verify
+    # named it. Each read route must say which record is unreadable.
+    for n in range(1, 4):
+        client.post("/decisions", json=body(transaction_id=f"T-{n}"), headers=ANALYST)
+    connection = sqlite3.connect(db_path, isolation_level=None)
+    connection.execute(corrupt)
+    connection.close()
+
+    for path in ("/decisions", "/decisions/2", "/decisions/2/replay"):
+        response = client.get(path, headers=AUDITOR)
+        assert response.status_code == 409, path
+        assert response.json() == {
+            "detail": "record 2 is unreadable; verify the chain with GET /audit/verify"
+        }
+    assert client.get("/decisions/3", headers=AUDITOR).status_code == 200
+    assert client.get("/audit/verify", headers=AUDITOR).json()["first_broken_id"] == 2
+
+
 def test_t34_missing_field_gives_422(client: TestClient) -> None:
     incomplete = body()
     del incomplete["merchant_id"]

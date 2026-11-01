@@ -12,9 +12,8 @@ from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.engine import Features, Outcome, Reason
 from app.rules import Thresholds
-from app.store import RecordInput
+from app.store import DecisionRecord, RecordInput
 
 IDENTIFIER = r"^[A-Za-z0-9_-]+$"
 ISO_WITH_OFFSET = re.compile(
@@ -92,22 +91,6 @@ class TransactionRequest(BaseModel):
             card_ref=card_ref.hexdigest()[:32],
             **self.model_dump(exclude={"card_number"}),
         )
-
-
-class DecisionRecord(BaseModel):
-    """A stored decision, as returned by GET /decisions and GET /decisions/{id}."""
-
-    record_version: int
-    id: int
-    prev_hash: str
-    received_at: str
-    rule_version: int
-    rules_sha256: str
-    input: RecordInput
-    features: Features | None
-    score: int | None
-    reasons: list[Reason]
-    outcome: Outcome
 
 
 class CreatedDecision(DecisionRecord):

@@ -11,7 +11,7 @@ Exact regulatory references are to be confirmed before they appear here
 | --- | --- | --- | --- | --- |
 | [EXP-01](#exp-01) | Explainability | Every decision returns reason codes and a score | Model risk management, fair treatment of customers | 64 |
 | [REP-01](#rep-01) | Reproducibility | Replay re-runs stored input on the stored rule version | Model risk, audit evidence | 11 |
-| [AUD-01](#aud-01) | Tamper evidence | Hash-chained log with verify that names the first altered record | Record integrity, internal audit | 46 |
+| [AUD-01](#aud-01) | Tamper evidence | Hash-chained log with verify that names the first altered record | Record integrity, internal audit | 49 |
 | [AUD-02](#aud-02) | Append-only, serialised appends | No update or delete path; concurrent appends cannot extend the same hash | Record integrity, internal audit | 10 |
 | [ACC-01](#acc-01) | Least privilege | Analyst and auditor roles enforced on every endpoint, deny by default | Access control, separation of duties | 13 |
 | [FS-01](#fs-01) | Fail safe | Errors and missing data give step-up, never approve | Operational resilience | 29 |
@@ -76,6 +76,8 @@ Exact regulatory references are to be confirmed before they appear here
 
 **Tamper evidence.** Hash-chained log with verify that names the first altered record.
 
+- `tests/test_api.py`
+  - unreadable record gives 409 not 500 (3 cases)
 - `tests/test_chain.py`
   - canonical json sorts keys drops spaces and escapes non ascii
   - sha256 hex is lowercase sha256

@@ -6,7 +6,6 @@ those stored bytes. Appends are serialised with BEGIN IMMEDIATE. There is no
 update or delete path.
 """
 
-import json
 import logging
 import sqlite3
 from collections.abc import Callable
@@ -14,7 +13,14 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_serializer
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_serializer,
+)
 
 from app.chain import (
     GENESIS_HASH,
@@ -50,6 +56,16 @@ class HistoryUnavailable(Exception):
     """Earlier records could not be read, so a replay cannot recompute features."""
 
 
+class RecordUnreadable(Exception):
+    """A stored record cannot be read as a decision; verify will name it."""
+
+    def __init__(self, record_id: int) -> None:
+        super().__init__(
+            f"record {record_id} is unreadable; verify the chain with GET /audit/verify"
+        )
+        self.record_id = record_id
+
+
 class RuleVersionUnavailable(Exception):
     """A stored record names a rule version that is not loaded, so it cannot be replayed."""
 
@@ -72,6 +88,30 @@ class RecordInput(BaseModel):
     @field_serializer("timestamp")
     def _keep_offset(self, value: datetime) -> str:
         return value.isoformat()
+
+
+class DecisionRecord(BaseModel):
+    """A stored decision, as returned by GET /decisions and GET /decisions/{id}."""
+
+    record_version: int
+    id: int
+    prev_hash: str
+    received_at: str
+    rule_version: int
+    rules_sha256: str
+    input: RecordInput
+    features: Features | None
+    score: int | None
+    reasons: list[Reason]
+    outcome: Outcome
+
+
+def _read_record(record_id: int, text: str) -> DecisionRecord:
+    """Parse a stored payload. An altered row raises RecordUnreadable instead of a 500."""
+    try:
+        return DecisionRecord.model_validate_json(text)
+    except ValidationError as error:
+        raise RecordUnreadable(record_id) from error
 
 
 class VerifyResult(BaseModel):
@@ -229,8 +269,9 @@ class Store:
         )
         return payload
 
-    def get(self, record_id: int) -> dict[str, Any] | None:
-        """The stored payload of one record, or None. Integrity is checked by verify()."""
+    def get(self, record_id: int) -> DecisionRecord | None:
+        """One stored record, or None. Raise RecordUnreadable if it cannot be read.
+        Integrity is checked by verify()."""
         connection = self._connect()
         try:
             row = connection.execute(
@@ -238,34 +279,32 @@ class Store:
             ).fetchone()
         finally:
             connection.close()
-        return None if row is None else json.loads(row[0])
+        return None if row is None else _read_record(record_id, row[0])
 
-    def latest(self, limit: int) -> list[dict[str, Any]]:
-        """The stored payloads of the latest records, newest first."""
+    def latest(self, limit: int) -> list[DecisionRecord]:
+        """The latest stored records, newest first. Raise RecordUnreadable on a bad one."""
         connection = self._connect()
         try:
             found = connection.execute(
-                "SELECT payload FROM decisions ORDER BY id DESC LIMIT ?", (limit,)
+                "SELECT id, payload FROM decisions ORDER BY id DESC LIMIT ?", (limit,)
             ).fetchall()
         finally:
             connection.close()
-        return [json.loads(text) for (text,) in found]
+        return [_read_record(record_id, text) for record_id, text in found]
 
     def replay(self, record_id: int, rule_sets: dict[int, RuleSet]) -> ReplayResult | None:
         """Re-run a stored decision on its stored rule version (plan 2.5). None if unknown id."""
-        payload = self.get(record_id)
-        if payload is None:
+        record = self.get(record_id)
+        if record is None:
             return None
-        rule_set = rule_sets.get(payload["rule_version"])
+        rule_set = rule_sets.get(record.rule_version)
         if rule_set is None:
             raise RuleVersionUnavailable(
-                f"rule version {payload['rule_version']} is not loaded; record {record_id}"
+                f"rule version {record.rule_version} is not loaded; record {record_id}"
                 " cannot be replayed"
             )
-        txn = RecordInput.model_validate(payload["input"])
-        stored_features = (
-            None if payload["features"] is None else Features.model_validate(payload["features"])
-        )
+        txn = record.input
+        stored_features = record.features
         decision = decide(_engine_transaction(txn), stored_features, rule_set)
         recomputed: Features | None = None
         if stored_features is not None:
@@ -280,9 +319,9 @@ class Store:
                 connection.close()
         stored = DecisionView(
             features=stored_features,
-            score=payload["score"],
-            reasons=payload["reasons"],
-            outcome=payload["outcome"],
+            score=record.score,
+            reasons=record.reasons,
+            outcome=record.outcome,
         )
         replayed = DecisionView(
             features=recomputed,
@@ -294,7 +333,7 @@ class Store:
             id=record_id,
             match=stored.model_dump(exclude={"features"})
             == replayed.model_dump(exclude={"features"}),
-            rules_match=rule_set_sha256(rule_set) == payload["rules_sha256"],
+            rules_match=rule_set_sha256(rule_set) == record.rules_sha256,
             features_match=None if stored_features is None else recomputed == stored_features,
             stored=stored,
             replayed=replayed,
