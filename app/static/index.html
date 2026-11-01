@@ -422,7 +422,7 @@
       detail.textContent = `All ${v.records_checked} records verified against their hashes.`;
     } else {
       bar.className = "panel integrity broken";
-      title.textContent = `Chain broken at record ${v.first_broken_id}`;
+      title.textContent = v.first_broken_id === null ? "Chain not trustworthy" : `Chain broken at record ${v.first_broken_id}`;
       detail.textContent = v.reason;
     }
   });

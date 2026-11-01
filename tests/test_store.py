@@ -369,6 +369,68 @@ def test_payload_stored_as_a_blob_fails_verify(tmp_path: Path) -> None:
     assert "record 2" in result.reason
 
 
+@control("AUD-01")
+def test_trigger_on_decisions_breaks_verify(chain: Store, raw: sqlite3.Connection) -> None:
+    # Red team R6: a trigger that silently drops declines changes no record, so the
+    # record walk alone reported intact while every decline became a 503.
+    append_quiet(chain, 3)
+    raw.execute(
+        "CREATE TRIGGER drop_declines BEFORE INSERT ON decisions"
+        " WHEN json_extract(new.payload, '$.outcome') = 'decline'"
+        " BEGIN SELECT RAISE(IGNORE); END"
+    )
+
+    result = chain.verify()
+
+    assert (result.intact, result.first_broken_id) == (False, None)
+    assert result.reason == (
+        "table decisions has insert trigger drop_declines, which can change what is recorded"
+    )
+
+
+@control("AUD-01")
+@pytest.mark.parametrize(
+    "trigger",
+    [
+        "CREATE TRIGGER drop_after AFTER INSERT ON decisions BEGIN SELECT 1; END",
+        "CREATE TRIGGER drop_lower before insert on decisions begin select 1; end",
+        "CREATE TRIGGER split BEFORE\nINSERT\nON decisions BEGIN SELECT 1; END",
+        "CREATE TRIGGER rewrite INSTEAD OF INSERT ON v BEGIN SELECT 1; END",
+    ],
+)
+def test_any_insert_trigger_on_decisions_breaks_verify(
+    chain: Store, raw: sqlite3.Connection, trigger: str
+) -> None:
+    append_quiet(chain, 1)
+    if "INSTEAD OF" in trigger:
+        # A trigger on another object must not break verify.
+        raw.execute("CREATE VIEW v AS SELECT * FROM decisions")
+        raw.execute(trigger)
+        assert chain.verify().intact
+        return
+    raw.execute(trigger)
+
+    assert chain.verify().intact is False
+
+
+@control("AUD-02")
+def test_update_and_delete_blocking_triggers_keep_verify_intact(
+    chain: Store, raw: sqlite3.Connection
+) -> None:
+    # Plan 2.4 allows triggers that refuse UPDATE and DELETE on decisions.
+    append_quiet(chain, 2)
+    raw.execute(
+        "CREATE TRIGGER no_update BEFORE UPDATE ON decisions"
+        " BEGIN SELECT RAISE(ABORT, 'append-only'); END"
+    )
+    raw.execute(
+        "CREATE TRIGGER no_delete BEFORE DELETE ON decisions"
+        " BEGIN SELECT RAISE(ABORT, 'append-only'); END"
+    )
+
+    assert chain.verify().intact
+
+
 # A7: serialised appends (plan 2.4)
 
 

@@ -11,8 +11,8 @@ Exact regulatory references are to be confirmed before they appear here
 | --- | --- | --- | --- | --- |
 | [EXP-01](#exp-01) | Explainability | Every decision returns reason codes and a score | Model risk management, fair treatment of customers | 64 |
 | [REP-01](#rep-01) | Reproducibility | Replay re-runs stored input on the stored rule version | Model risk, audit evidence | 11 |
-| [AUD-01](#aud-01) | Tamper evidence | Hash-chained log with verify that names the first altered record | Record integrity, internal audit | 49 |
-| [AUD-02](#aud-02) | Append-only, serialised appends | No update or delete path; concurrent appends cannot extend the same hash | Record integrity, internal audit | 10 |
+| [AUD-01](#aud-01) | Tamper evidence | Hash-chained log with verify that names the first altered record | Record integrity, internal audit | 54 |
+| [AUD-02](#aud-02) | Append-only, serialised appends | No update or delete path; concurrent appends cannot extend the same hash | Record integrity, internal audit | 11 |
 | [ACC-01](#acc-01) | Least privilege | Analyst and auditor roles enforced on every endpoint, deny by default | Access control, separation of duties | 13 |
 | [FS-01](#fs-01) | Fail safe | Errors and missing data give step-up, never approve | Operational resilience | 29 |
 | [DAT-01](#dat-01) | Data minimisation | Synthetic data only, card numbers masked to the last 4 digits, no sensitive values in logs | Privacy, payment data handling | 17 |
@@ -109,6 +109,8 @@ Exact regulatory references are to be confirmed before they appear here
   - T39: non canonical rewrite of the same values fails at that record
   - T40: duplicate card ref key fails at that record
   - payload stored as a blob fails verify
+  - trigger on decisions breaks verify
+  - any insert trigger on decisions breaks verify (4 cases)
 
 ## AUD-02
 
@@ -120,6 +122,7 @@ Exact regulatory references are to be confirmed before they appear here
   - concurrent posts build one linked chain
   - database refuses a second record on the same prev hash
 - `tests/test_store.py`
+  - update and delete blocking triggers keep verify intact
   - T26: concurrent appends form one linked chain
   - T28: database refuses a second record with an existing hash (2 cases)
   - failed write raises store write error and adds nothing

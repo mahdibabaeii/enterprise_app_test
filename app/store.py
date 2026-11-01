@@ -7,6 +7,7 @@ update or delete path.
 """
 
 import logging
+import re
 import sqlite3
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -343,6 +344,14 @@ class Store:
         """Walk the chain in id order and stop at the first broken record (plan 2.5)."""
         connection = self._connect()
         try:
+            trigger = _insert_trigger(connection)
+            if trigger:
+                return VerifyResult(
+                    intact=False,
+                    records_checked=0,
+                    reason=f"table decisions has insert trigger {trigger},"
+                    " which can change what is recorded",
+                )
             records = connection.execute(
                 "SELECT id, prev_hash, CAST(payload AS BLOB), typeof(payload), hash"
                 " FROM decisions ORDER BY id"
@@ -364,6 +373,25 @@ class Store:
             return VerifyResult(intact=True, records_checked=checked)
         finally:
             connection.close()
+
+
+def _insert_trigger(connection: sqlite3.Connection) -> str | None:
+    """The first trigger on decisions that is not an UPDATE or DELETE trigger.
+
+    An INSERT trigger can drop or rewrite new decisions without changing any stored
+    record, so the record walk alone would report intact (red team R6). UPDATE and
+    DELETE triggers are allowed: plan 2.4 uses them to block edits. The event is read
+    from the trigger's SQL with whitespace collapsed; anything unclear counts as INSERT.
+    """
+    for name, sql in connection.execute(
+        "SELECT name, sql FROM sqlite_master WHERE type = 'trigger'"
+        " AND tbl_name = 'decisions' ORDER BY name"
+    ):
+        words = " ".join(sql.upper().split())
+        head = words.split(" ON ", 1)[0]
+        if not re.search(r" (UPDATE|DELETE)( OF .*)?$", head):
+            return name
+    return None
 
 
 def _broken_reason(
