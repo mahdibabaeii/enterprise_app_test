@@ -30,7 +30,7 @@ make start
 | Command | What it does |
 | --- | --- |
 | `make start` | Install, reseed `data/demo.db`, serve the UI and API on port 8000 |
-| `make verify` | Lint, format check, tests, tamper simulation, determinism replay. Exits 0 only if all pass |
+| `make verify` | Lint, format check, tests, tamper simulation, determinism replay, controls document check. Exits 0 only if all pass |
 | `make demo` | Replace `data/demo.db` with fresh sample decisions |
 | `make tamper` | Corrupt one record in `data/demo.db` only (record 3 by default, `RECORD=n` to choose) |
 
@@ -120,7 +120,9 @@ it could not record.
 ## Controls
 
 Each control is backed by tests tagged with its id, for example
-`@control("AUD-01")`.
+`@control("AUD-01")`. [`docs/controls.md`](docs/controls.md) is generated from
+those tags and lists every test under its control; `make verify` fails if it is
+out of date.
 
 | Id | Control | What the system does |
 | --- | --- | --- |
@@ -183,12 +185,13 @@ These are out of scope for this slice by design:
 | --- | --- |
 | [`docs/PRD.md`](docs/PRD.md) | Product requirements and acceptance criteria A1 to A9 |
 | [`docs/plan.md`](docs/plan.md) | Approved plan: record format, what is hashed, tests mapped to A1 to A9 (section 4) |
+| [`docs/controls.md`](docs/controls.md) | Controls and the tests behind each, generated from the test tags |
 | [`docs/challenges/`](docs/challenges/) | Independent challenge of the plan and the decisions taken |
 | [`docs/reviews/`](docs/reviews/) | Reviews of the store and the API, and the fixes they led to |
 | [`AGENTS.md`](AGENTS.md) | Conventions the coding agents follow |
 | `app/` | API, engine, rules loader, store and the one-page UI |
 | `rules/` | Versioned rule sets |
-| `scripts/` | Demo seed, tamper command, tamper simulation and determinism replay |
+| `scripts/` | Demo seed, tamper command, tamper simulation, determinism replay and the controls document generator |
 | `tests/` | Tests tagged with control ids |
 
 There is no separate `SPEC.md`: the PRD and the test table in the plan are the

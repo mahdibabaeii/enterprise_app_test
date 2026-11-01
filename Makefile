@@ -31,6 +31,7 @@ verify: .venv/.synced
 	$(RUN) pytest
 	$(RUN) python -m scripts.tamper_sim
 	$(RUN) python -m scripts.replay_check
+	$(RUN) python -m scripts.controls_doc --check
 
 # Replace data/demo.db with fresh sample decisions.
 demo: .venv/.synced
