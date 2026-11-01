@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.models import CreatedDecision, DecisionRecord, ErrorResponse, TransactionRequest
 from app.rules import RULES_DIR, active_rule_set, load_rule_sets
@@ -27,7 +27,9 @@ from app.store import (
 
 # Public demo key: all data is synthetic. A production key belongs in a vault (plan R20).
 DEMO_CARD_REF_KEY = "demo-card-ref-key-public-not-a-secret"
-DEFAULT_DB = Path("data/demo.db")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_DB = REPO_ROOT / "data" / "demo.db"
+INDEX_HTML = Path(__file__).resolve().parent / "static" / "index.html"
 RECENT_LIMIT = 20
 
 ROLES = frozenset({"analyst", "auditor"})
@@ -35,6 +37,7 @@ BOTH = frozenset({"analyst", "auditor"})
 
 # Deny by default: a route missing here refuses every role (plan section 3).
 # /docs and /openapi.json are not API routes, so this check does not apply to them.
+PUBLIC_ROUTES = frozenset({("GET", "/")})
 ALLOWED_ROLES: dict[tuple[str, str], frozenset[str]] = {
     ("POST", "/decisions"): frozenset({"analyst"}),
     ("GET", "/decisions"): BOTH,
@@ -56,11 +59,13 @@ ERRORS = {
 
 def require_role(
     request: Request, x_role: Annotated[str | None, Header(description="analyst or auditor")] = None
-) -> str:
+) -> str | None:
     """Check the X-Role header against the route's allowlist entry."""
+    path = request.scope["route"].path
+    if (request.method, path) in PUBLIC_ROUTES:
+        return None
     if x_role not in ROLES:
         raise HTTPException(401, "X-Role header must be 'analyst' or 'auditor'")
-    path = request.scope["route"].path
     if x_role not in ALLOWED_ROLES.get((request.method, path), frozenset()):
         raise HTTPException(403, f"role '{x_role}' may not {request.method} {path}")
     return x_role
@@ -95,6 +100,10 @@ def create_app(
         swagger_ui_oauth2_redirect_url=None,
     )
     app.add_exception_handler(RequestValidationError, validation_error)
+
+    @app.get("/", include_in_schema=False)
+    def index() -> FileResponse:
+        return FileResponse(INDEX_HTML, media_type="text/html")
 
     @app.post(
         "/decisions",

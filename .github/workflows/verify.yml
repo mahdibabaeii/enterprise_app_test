@@ -15,3 +15,16 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@v10.3.3
       - run: make verify
+      # T33 (A9): make start serves the UI on port 8000 within 60 seconds.
+      - name: make start answers on port 8000
+        run: |
+          make start > start.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:8000/; then
+              echo "make start answered after ${attempt}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat start.log
+          exit 1

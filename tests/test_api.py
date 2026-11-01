@@ -192,6 +192,7 @@ ROLE_MATRIX: dict[tuple[str, str], tuple[int, int, int]] = {
     ("GET", "/decisions/{decision_id}"): (200, 200, 401),
     ("GET", "/decisions/{decision_id}/replay"): (200, 200, 401),
     ("GET", "/audit/verify"): (403, 200, 401),
+    ("GET", "/"): (200, 200, 200),
     ("GET", "/docs"): (200, 200, 200),
     ("GET", "/openapi.json"): (200, 200, 200),
 }
