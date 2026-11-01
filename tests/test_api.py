@@ -422,6 +422,7 @@ def test_t27_concurrent_posts_form_one_linked_chain(client: TestClient, db_path:
         ("extra field", {"cvv": "123"}),
         ("non-digit card", {"card_number": "4539-5787-6362-1486"}),
         ("short card", {"card_number": "45395787636"}),
+        ("all-zero card", {"card_number": "000000000000"}),
         ("lowercase country", {"merchant_country": "gb"}),
         ("bad transaction id", {"transaction_id": "T 0001"}),
         ("unknown card status", {"card_status": "lost"}),
@@ -434,6 +435,23 @@ def test_t34_bad_input_gives_422(
 
     assert response.status_code == 422, case
     assert record_count(db_path) == 0
+
+
+@control("EXP-01")
+def test_zero_prefixed_card_cannot_reset_velocity(client: TestClient, db_path: Path) -> None:
+    # Red team R1. A leading zero keeps the Luhn sum, so "0" + card would get its own
+    # card_ref and history. Five plain attempts in one second, then the sixth with a
+    # leading zero: it must be refused, not approved as a first attempt.
+    for n in range(5):
+        client.post("/decisions", json=body(transaction_id=f"T-V{n}"), headers=ANALYST)
+
+    sixth = client.post(
+        "/decisions", json=body(transaction_id="T-V5", card_number="0" + CARD), headers=ANALYST
+    )
+
+    assert sixth.status_code == 422
+    assert sixth.json()["detail"][0]["loc"] == ["body", "card_number"]
+    assert record_count(db_path) == 5
 
 
 def test_t34_missing_field_gives_422(client: TestClient) -> None:

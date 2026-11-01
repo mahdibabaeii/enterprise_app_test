@@ -9,7 +9,7 @@ Exact regulatory references are to be confirmed before they appear here
 
 | Id | Control | What the system does | Expectation it supports | Tests |
 | --- | --- | --- | --- | --- |
-| [EXP-01](#exp-01) | Explainability | Every decision returns reason codes and a score | Model risk management, fair treatment of customers | 63 |
+| [EXP-01](#exp-01) | Explainability | Every decision returns reason codes and a score | Model risk management, fair treatment of customers | 64 |
 | [REP-01](#rep-01) | Reproducibility | Replay re-runs stored input on the stored rule version | Model risk, audit evidence | 11 |
 | [AUD-01](#aud-01) | Tamper evidence | Hash-chained log with verify that names the first altered record | Record integrity, internal audit | 46 |
 | [AUD-02](#aud-02) | Append-only, serialised appends | No update or delete path; concurrent appends cannot extend the same hash | Record integrity, internal audit | 10 |
@@ -22,6 +22,8 @@ Exact regulatory references are to be confirmed before they appear here
 
 **Explainability.** Every decision returns reason codes and a score.
 
+- `tests/test_api.py`
+  - zero prefixed card cannot reset velocity
 - `tests/test_engine.py`
   - T20: threshold mapping with v1 thresholds (6 cases)
   - T21: reachable threshold edges end to end (4 cases)
@@ -219,7 +221,7 @@ Exact regulatory references are to be confirmed before they appear here
 These cover input validation, lookups, the demo commands, start-up
 (acceptance criterion A9, which has no control in the PRD) and this generator.
 
-- `tests/test_api.py`: T34: bad input gives 422 (17 cases)
+- `tests/test_api.py`: T34: bad input gives 422 (18 cases)
 - `tests/test_api.py`: T34: missing field gives 422
 - `tests/test_api.py`: T35: unknown id gives 404 (3 cases)
 - `tests/test_api.py`: id outside the record id range gives 422 (4 cases)

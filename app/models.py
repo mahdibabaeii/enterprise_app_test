@@ -41,7 +41,9 @@ class TransactionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     transaction_id: str = Field(min_length=1, max_length=64, pattern=IDENTIFIER)
-    card_number: str = Field(pattern=r"^[0-9]{12,19}$", repr=False)
+    # No leading zero: issued card numbers never start with 0, and a leading zero keeps
+    # the Luhn sum, so "0" + card would get its own card_ref and history (red team R1).
+    card_number: str = Field(pattern=r"^[1-9][0-9]{11,18}$", repr=False)
     card_status: Literal["active", "reported_stolen"]
     amount_minor: int = Field(strict=True, gt=0, le=100_000_000)
     currency: Literal["AUD"]
