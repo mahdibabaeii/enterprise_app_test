@@ -4,7 +4,8 @@ Replaces the database file and appends each sample through the real request
 model, engine and store (plan R28). No record is updated or deleted in place.
 All card numbers are synthetic test numbers.
 
-Usage: python -m scripts.seed [path]   (default: data/demo.db)
+Usage: python -m scripts.seed   (always data/demo.db; it takes no path, so a
+mistyped argument cannot delete another file)
 """
 
 import sys
@@ -136,9 +137,11 @@ def seed(path: Path = DEFAULT_DB) -> int:
 
 
 def main(argv: list[str]) -> int:
-    path = Path(argv[0]) if argv else DEFAULT_DB
-    count = seed(path)
-    print(f"seeded {count} demo decisions into {path}")
+    if argv:
+        print("usage: python -m scripts.seed (takes no arguments)", file=sys.stderr)
+        return 2
+    count = seed(DEFAULT_DB)
+    print(f"seeded {count} demo decisions into {DEFAULT_DB}")
     return 0
 
 

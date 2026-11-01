@@ -99,6 +99,19 @@ def test_seed_replaces_the_database_instead_of_appending(tmp_path: Path) -> None
     assert (result.intact, result.records_checked) == (True, count)
 
 
+def test_seed_command_takes_no_path_so_it_cannot_overwrite_another_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(seed, "DEFAULT_DB", tmp_path / "data" / "demo.db")
+    other = tmp_path / "important.txt"
+    other.write_text("important")
+
+    assert seed.main([str(other)]) == 2
+
+    assert other.read_text() == "important"
+    assert not seed.DEFAULT_DB.exists()
+
+
 @control("AUD-01")
 def test_tamper_alters_one_record_and_verify_names_it(
     demo_db: Path, capsys: pytest.CaptureFixture[str]
