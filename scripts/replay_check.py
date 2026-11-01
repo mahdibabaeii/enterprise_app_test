@@ -2,10 +2,13 @@
 
 Generates a seeded batch of synthetic transactions: velocity bursts, night
 purchases at new merchants, foreign and large amounts, and hard-rule hits.
-Appends the batch through the real request model and store into two fresh
-databases with the same fixed clock. Requires:
+Appends the batch through the real request model and store under rule
+version 1 into two fresh databases with the same fixed clock. The second is
+built in a subprocess with a different TZ and PYTHONHASHSEED, so dependence
+on the process time zone or hash ordering changes its records. Requires:
 
-- identical head hashes, so every record is byte-for-byte the same
+- both head hashes to equal EXPECTED_HEAD, so every record is byte-for-byte
+  the same in both processes and on every day and hour this runs
 - every replay to report match, rules_match and features_match (or null
   features_match for failed-safe records)
 - every outcome to appear, so the batch exercises all paths
@@ -13,8 +16,10 @@ databases with the same fixed clock. Requires:
 Exits 1 on any failure. Never touches data/demo.db.
 """
 
+import os
 import random
 import sqlite3
+import subprocess
 import sys
 import tempfile
 from collections import Counter
@@ -23,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from app.models import TransactionRequest
-from app.rules import active_rule_set, load_rule_sets
+from app.rules import load_rule_sets
 from app.store import Store
 
 SEED = 20261101
@@ -31,6 +36,14 @@ COUNT = 200
 CARD_REF_KEY = "replay-check-key"
 FIXED_CLOCK = datetime(2026, 11, 1, tzinfo=UTC)
 OFFSETS = [timezone(timedelta(hours=h)) for h in (11, 10, 0, -5, 8)]
+RULE_VERSION = 1
+# Head hash of this batch under rule version 1, FIXED_CLOCK and CARD_REF_KEY.
+# Version 1 rules never change (T05), so this changes only with the batch or
+# the record format; update it then, and only then.
+EXPECTED_HEAD = "8272a2f3b27247d95bf2297182d10a45b9aea56882e00fc45f2d0872f85110b7"
+# Environment of the second build: a far time zone and a fixed hash seed.
+OTHER_PROCESS = {"TZ": "Pacific/Kiritimati", "PYTHONHASHSEED": "20261101"}
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def luhn_complete(prefix: str) -> str:
@@ -76,7 +89,7 @@ def synthetic_batch(seed: int = SEED, count: int = COUNT) -> list[dict[str, Any]
 
 
 def run(path: Path, batch: list[dict[str, Any]]) -> Store:
-    rule_set = active_rule_set(load_rule_sets())
+    rule_set = load_rule_sets()[RULE_VERSION]
     chain = Store(path, clock=lambda: FIXED_CLOCK)
     for body in batch:
         record = TransactionRequest.model_validate(body).to_record(CARD_REF_KEY)
@@ -94,6 +107,16 @@ def head_hash(path: Path) -> str:
         connection.close()
 
 
+def build_in_other_process(path: Path) -> None:
+    """Build the batch into `path` in a subprocess with OTHER_PROCESS's environment."""
+    subprocess.run(
+        [sys.executable, "-m", "scripts.replay_check", "--build", str(path)],
+        cwd=REPO_ROOT,
+        env={**os.environ, **OTHER_PROCESS},
+        check=True,
+    )
+
+
 def main() -> int:
     batch = synthetic_batch()
     rule_sets = load_rule_sets()
@@ -101,9 +124,11 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as directory:
         first, second = Path(directory) / "first.db", Path(directory) / "second.db"
         chain = run(first, batch)
-        run(second, batch)
-        if head_hash(first) != head_hash(second):
-            failures.append("head hashes differ between two runs of the same batch")
+        build_in_other_process(second)
+        heads = {"this process": head_hash(first), "other process": head_hash(second)}
+        for where, head in heads.items():
+            if head != EXPECTED_HEAD:
+                failures.append(f"head hash in {where} is {head}, expected {EXPECTED_HEAD}")
         outcomes: Counter[str] = Counter()
         reasons: Counter[str] = Counter()
         for record_id in range(1, len(batch) + 1):
@@ -126,9 +151,12 @@ def main() -> int:
         print(f"replay check FAILED: {failure}")
     if failures:
         return 1
-    print("replay check passed: identical head hashes, every replay matches")
+    print("replay check passed: expected head hash in both processes, every replay matches")
     return 0
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--build"]:
+        run(Path(sys.argv[2]), synthetic_batch())
+        sys.exit(0)
     sys.exit(main())

@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 from app import store
 from app.main import create_app
 from app.rules import RULES_DIR
+from scripts import replay_check
 from tests.controls import control
 
 ANALYST = {"X-Role": "analyst"}
@@ -70,6 +71,11 @@ def copy_rules(tmp_path: Path) -> Path:
 
 
 # A1: replay
+
+
+@control("REP-01")
+def test_t04_determinism_replay_check_passes(capsys: pytest.CaptureFixture[str]) -> None:
+    assert replay_check.main() == 0, capsys.readouterr().out
 
 
 @control("REP-01")

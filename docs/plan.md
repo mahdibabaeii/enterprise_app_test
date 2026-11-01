@@ -340,7 +340,7 @@ A9 has no control in the PRD table, so its tests carry no control tag.
 | T01 | The same txn, features and rule set decided twice give equal decisions, including with input keys shuffled | engine | REP-01 | A1 |
 | T02 | A night-rule decision is identical with process `TZ=UTC` and `TZ=Australia/Melbourne` (uses the txn's own offset, not the server clock) | engine | REP-01 | A1 |
 | T03 | POST then replay gives `match: true`, `rules_match: true`, `features_match: true` | api | REP-01 | A1 |
-| T04 | `replay_check.py`: 200 seeded synthetic txns (bursts, night, foreign, hard-rule hits) into two fresh DBs with the same fixed injected clock give identical head hashes, and every replay matches | script in verify | REP-01 | A1 |
+| T04 | `replay_check.py`: 200 seeded synthetic txns (bursts, night, foreign, hard-rule hits) under rule version 1 into two fresh DBs with the same fixed injected clock, the second built in a subprocess with a different `TZ` and `PYTHONHASHSEED`, both give the pinned head hash, and every replay matches | script in verify, plus a tagged test that runs it | REP-01 | A1 |
 | T05 | A rule's points edited under the same version make replay report `rules_match: false` | api | VER-01 | A1 |
 | T06 | A fresh chain of 5 verifies intact, and an empty chain verifies intact | store | AUD-01 | A2 |
 | T07 | Changing `outcome` inside record 3's payload makes verify fail with `first_broken_id: 3` | store | AUD-01 | A2 |
